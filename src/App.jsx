@@ -449,34 +449,35 @@ export default function App() {
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
             {/* Header */}
-            <header className="bg-indigo-900 text-white p-4 shadow-lg sticky top-0 z-20">
+            <header className="bg-[#fff6dc] text-gray-800 p-4 shadow-lg sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto flex justify-between items-center px-4">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('DASHBOARD')}>
-                        <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
-                            <FileText size={24} className="text-white" />
+                        {/* Logo replaced with provided image */}
+                        <div className="p-0 rounded-lg">
+                            <img src="https://i.postimg.cc/mZyWsFf3/Logo-SBV-Retina.png" alt="Logo" className="h-10 w-auto" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold tracking-wide">SCRIB-DIGITAL</h1>
-                            <p className="text-xs text-indigo-300">Gestor de Documentos Notariales</p>
+                            <h1 className="text-xl font-bold tracking-wide text-gray-900">Gestor certificaciones</h1>
+                            <p className="text-xs text-gray-500">Gestor de Documentos Notariales</p>
                         </div>
                     </div>
 
-                    <nav className="flex gap-2 bg-indigo-800/50 p-1 rounded-xl">
+                    <nav className="flex gap-2 bg-white/50 p-1 rounded-xl border border-amber-100">
                         <button
                             onClick={() => setView('DASHBOARD')}
-                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'DASHBOARD' ? 'bg-white text-indigo-900 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'DASHBOARD' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-indigo-600 hover:bg-white'}`}
                         >
                             <LayoutTemplate size={16} /> Plantillas
                         </button>
                         <button
                             onClick={() => setView('CERTIFICATIONS')}
-                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CERTIFICATIONS' ? 'bg-white text-indigo-900 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CERTIFICATIONS' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-indigo-600 hover:bg-white'}`}
                         >
                             <FileCheck size={16} /> Certificaciones
                         </button>
                         <button
                             onClick={() => setView('CLIENTS')}
-                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CLIENTS' ? 'bg-white text-indigo-900 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CLIENTS' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-indigo-600 hover:bg-white'}`}
                         >
                             <Users size={16} /> Clientes
                         </button>
