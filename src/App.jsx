@@ -252,7 +252,7 @@ export default function App() {
         }, 2000); // 2 seconds debounce
 
         return () => clearTimeout(timer);
-    }, [formData, certificationClient]); // Auto-save triggered by data change
+    }, [formData, certificationClient, certificationId]); // Auto-save triggered by data change and ID updates
 
     // --- ACCIONES PLANTILLAS ---
     const handleCreateNewTemplate = () => {
@@ -319,11 +319,11 @@ export default function App() {
         // Auto-fill form data if matches
         setFormData(prev => ({
             ...prev,
-            ['NOMBRE']: client.name.toUpperCase(),
-            ['CLIENTE']: client.name.toUpperCase(),
-            ['COMPARECIENTE']: client.name.toUpperCase(),
-            ['DNI']: client.dni || prev['DNI'],
-            ['DOMICILIO']: client.address || prev['DOMICILIO']
+            ['NOMBRE']: (client.name || '').toUpperCase(),
+            ['CLIENTE']: (client.name || '').toUpperCase(),
+            ['COMPARECIENTE']: (client.name || '').toUpperCase(),
+            ['DNI']: client.dni || prev['DNI'] || '',
+            ['DOMICILIO']: client.address || prev['DOMICILIO'] || ''
         }));
     };
 
