@@ -1,16 +1,80 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     FileText, Plus, Edit3, Trash2, ArrowLeft, Save,
-    Download, RefreshCw, PenTool, LayoutTemplate, Printer, Share2
+    Download, PenTool, LayoutTemplate, Bold, Underline, CheckSquare
 } from 'lucide-react';
 
 // --- Utiles para Variables ---
-// Detecta patrones {{VARIABLE}} en el texto
 const extractVariables = (text) => {
+    if (!text) return [];
+    // Detecta patrones {{VARIABLE}} incluso dentro de tags HTML
     const regex = /{{(.*?)}}/g;
     const matches = [...text.matchAll(regex)];
-    // Retorna array de variables únicas limpias (sin llaves)
     return [...new Set(matches.map(m => m[1].trim()))];
+};
+
+// --- Componente Rich Text Editor ---
+const RichTextEditor = ({ content, onChange, placeholder }) => {
+    const editorRef = useRef(null);
+
+    // Initial content setup
+    useEffect(() => {
+        if (editorRef.current && content !== editorRef.current.innerHTML) {
+            // Solo actualizar si es diferente para no perder cursor (basic implementation)
+            // En una app real usaríamos Draft.js o Slate, pero para "native feel" y copy/paste de Word:
+            if (content === '' || content === '<br>') {
+                editorRef.current.innerHTML = '';
+            } else if (!editorRef.current.innerText.trim() && !content) {
+                editorRef.current.innerHTML = '';
+            }
+        }
+    }, []);
+
+    const handleInput = () => {
+        const html = editorRef.current.innerHTML;
+        onChange(html);
+    };
+
+    const execCmd = (command) => {
+        document.execCommand(command, false, null);
+        editorRef.current.focus();
+    };
+
+    return (
+        <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-white">
+            {/* Toolbar */}
+            <div className="flex items-center gap-2 p-2 bg-gray-50 border-b">
+                <button onMouseDown={(e) => { e.preventDefault(); execCmd('bold'); }} className="p-2 hover:bg-gray-200 rounded text-gray-700" title="Negrita">
+                    <Bold size={18} />
+                </button>
+                <button onMouseDown={(e) => { e.preventDefault(); execCmd('underline'); }} className="p-2 hover:bg-gray-200 rounded text-gray-700" title="Subrayado">
+                    <Underline size={18} />
+                </button>
+                <div className="h-6 w-px bg-gray-300 mx-2"></div>
+                <span className="text-xs text-gray-500 font-medium">Arial 11pt (Automático)</span>
+            </div>
+
+            {/* Editable Area */}
+            <div
+                ref={editorRef}
+                contentEditable
+                className="flex-1 p-8 outline-none overflow-auto text-editor"
+                style={{
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '11pt',
+                    lineHeight: '1.5',
+                    minHeight: '200px'
+                }}
+                onInput={handleInput}
+                dangerouslySetInnerHTML={{ __html: content }}
+                placeholder={placeholder}
+            />
+            {/* Instrucción de pegado */}
+            <div className="px-4 py-2 bg-yellow-50 text-xs text-yellow-700 border-t flex justify-between">
+                <span>Tip: Puedes pegar contenido directamente desde Word manteniendo el formato.</span>
+            </div>
+        </div>
+    );
 };
 
 // --- Componentes ---
@@ -47,26 +111,28 @@ export default function App() {
     // --- ESTADOS ---
     const [view, setView] = useState('DASHBOARD'); // DASHBOARD, EDITOR, GENERATOR
     const [templates, setTemplates] = useState(() => {
-        const saved = localStorage.getItem('scrib_templates');
+        const saved = localStorage.getItem('scrib_templates_v2'); // Nueva key v2
         return saved ? JSON.parse(saved) : [{
             id: 'demo-1',
             title: 'Certificación de Firma (Modelo Base)',
-            description: 'Modelo estándar para certificar firmas con el 08.',
-            content: `CERTIFICO que la firma que antecede ha sido puesta en mi presencia por {{NOMBRE COMPLETO}}, DNI N° {{DNI}}, quien justifica identidad con {{TIPO DOCUMENTO}}.
-            
-En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{AÑO}}.`
+            description: 'Modelo estándar con Acta y Banderita.',
+            contentActa: `<b>ACTA DE CERTIFICACIÓN.</b> En la ciudad de <b>{{CIUDAD}}</b>, a los {{DIA}} días del mes de {{MES}} del año {{AÑO}}...`,
+            contentBanderita: `<b>CERTIFICO</b> que la firma que antecede ha sido puesta en mi presencia por <b>{{NOMBRE}}</b>, DNI {{DNI}}...`,
+            hasActa: true,
+            hasBanderita: true
         }];
     });
 
     // Estado para edición/creación
     const [currentTemplate, setCurrentTemplate] = useState(null);
+    const [activeSection, setActiveSection] = useState('acta'); // 'acta' | 'banderita'
 
     // Estado para generación
     const [formData, setFormData] = useState({});
 
     // Persistencia
     useEffect(() => {
-        localStorage.setItem('scrib_templates', JSON.stringify(templates));
+        localStorage.setItem('scrib_templates_v2', JSON.stringify(templates));
     }, [templates]);
 
     // --- ACCIONES ---
@@ -76,13 +142,18 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
             id: crypto.randomUUID(),
             title: 'Nueva Plantilla',
             description: '',
-            content: 'Escribe aquí tu texto... usa el botón "+ Campo" para agregar variables dinámicas.'
+            contentActa: 'Contenido del Acta (Paso 1)...',
+            contentBanderita: 'Contenido de la Certificación (Paso 2)...',
+            hasActa: true,
+            hasBanderita: true
         });
+        setActiveSection('acta');
         setView('EDITOR');
     };
 
     const handleEdit = (template) => {
-        setCurrentTemplate({ ...template });
+        setCurrentTemplate({ ...template }); // Shallow copy es suficiente por ahora
+        setActiveSection('acta');
         setView('EDITOR');
     };
 
@@ -105,11 +176,20 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
 
     const handleUseTemplate = (template) => {
         setCurrentTemplate(template);
-        // Inicializar campos vacíos basados en las variables encontradas
-        const vars = extractVariables(template.content);
+        // Extraer variables de ambas secciones si están habilitadas
+        let vars = [];
+        if (template.hasActa) vars = [...vars, ...extractVariables(template.contentActa)];
+        if (template.hasBanderita) vars = [...vars, ...extractVariables(template.contentBanderita)];
+
+        // Quitar duplicados
+        vars = [...new Set(vars)];
+
         const initialData = {};
         vars.forEach(v => initialData[v] = '');
         setFormData(initialData);
+
+        // Default tab
+        setActiveSection(template.hasActa ? 'acta' : 'banderita');
         setView('GENERATOR');
     };
 
@@ -117,17 +197,31 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
         const cleanName = varName.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
         const tag = `{{${cleanName}}}`;
 
-        // Inserción simple al final (idealmente sería en la posición del cursor)
+        // Insertar en la sección activa
+        const key = activeSection === 'acta' ? 'contentActa' : 'contentBanderita';
+
+        // Para simplificar en RichText, añadimos al final.
+        // En una implementación perfecta usaríamos Range/Selection API.
         setCurrentTemplate(prev => ({
             ...prev,
-            content: prev.content + " " + tag
+            [key]: prev[key] + ` <span style="background-color: #e0e7ff; padding: 2px 4px; border-radius: 4px; font-weight: bold;">${tag}</span> `
         }));
     };
 
     // --- Exportación a Word ---
     const exportToWord = () => {
         const content = document.getElementById('document-preview').innerHTML;
-        const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Documento</title></head><body>";
+        // Agregamos estilos específicos para que Word respete Arial 11
+        const header = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head>
+                <meta charset='utf-8'>
+                <title>Documento</title>
+                <style>
+                    body { font-family: 'Arial', sans-serif; font-size: 11pt; }
+                </style>
+            </head>
+            <body>`;
         const footer = "</body></html>";
         const sourceHTML = header + content + footer;
 
@@ -135,7 +229,7 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
         const fileDownload = document.createElement("a");
         document.body.appendChild(fileDownload);
         fileDownload.href = source;
-        fileDownload.download = `${currentTemplate.title}.doc`;
+        fileDownload.download = `${currentTemplate.title}_${activeSection}.doc`;
         fileDownload.click();
         document.body.removeChild(fileDownload);
     };
@@ -226,15 +320,31 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
                                         placeholder="Ej: Certificación de Firmas"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Descripción</label>
-                                    <textarea
-                                        value={currentTemplate.description}
-                                        onChange={(e) => setCurrentTemplate({ ...currentTemplate, description: e.target.value })}
-                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-none h-24"
-                                        placeholder="Breve descripción..."
-                                    />
+
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 className="font-bold text-gray-700 mb-3 text-sm uppercase">Secciones Habilitadas</h4>
+                                    <div className="space-y-2">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={currentTemplate.hasActa}
+                                                onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasActa: e.target.checked })}
+                                                className="w-4 h-4 text-indigo-600 rounded"
+                                            />
+                                            <span className="text-sm font-medium">Paso 1: Acta Notarial</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={currentTemplate.hasBanderita}
+                                                onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasBanderita: e.target.checked })}
+                                                className="w-4 h-4 text-indigo-600 rounded"
+                                            />
+                                            <span className="text-sm font-medium">Paso 2: Certificación (Banderita)</span>
+                                        </label>
+                                    </div>
                                 </div>
+
                                 <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
                                     <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Plus size={16} /> Variables Dinámicas</h4>
                                     <p className="text-xs text-indigo-700 mb-3">Agrega campos que rellenarás al momento de usar la plantilla.</p>
@@ -253,24 +363,47 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
                                             Agregar
                                         </button>
                                     </div>
-                                    <ul className="mt-4 space-y-1">
-                                        <li className="text-xs text-gray-500 font-mono bg-white p-1 rounded border">{"{{FECHA}}"} (Auto sugerido)</li>
-                                    </ul>
+                                    <p className="text-xs text-indigo-700 mt-2">La variable se insertará en la sección activa.</p>
                                 </div>
                             </div>
 
-                            {/* Panel Derecho: Editor de Contenido */}
+                            {/* Panel Derecho: Editor de Contenido con Tabs */}
                             <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
-                                <div className="bg-gray-50 px-4 py-2 border-b flex justify-between items-center text-xs text-gray-500 font-medium">
-                                    <span>EDITOR DE TEXTO</span>
-                                    <span>Usa las llaves {"{{...}}"} para crear variables</span>
+                                {/* Tabs */}
+                                <div className="flex border-b">
+                                    {currentTemplate.hasActa && (
+                                        <button
+                                            onClick={() => setActiveSection('acta')}
+                                            className={`px-6 py-3 font-bold text-sm transition-colors ${activeSection === 'acta' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                                        >
+                                            PASO 1: ACTA
+                                        </button>
+                                    )}
+                                    {currentTemplate.hasBanderita && (
+                                        <button
+                                            onClick={() => setActiveSection('banderita')}
+                                            className={`px-6 py-3 font-bold text-sm transition-colors ${activeSection === 'banderita' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                                        >
+                                            PASO 2: BANDERITA
+                                        </button>
+                                    )}
                                 </div>
-                                <textarea
-                                    value={currentTemplate.content}
-                                    onChange={(e) => setCurrentTemplate({ ...currentTemplate, content: e.target.value })}
-                                    className="flex-1 w-full p-8 outline-none font-serif text-lg leading-relaxed resize-none"
-                                    placeholder="Comience a redactar su documento aquí..."
-                                />
+
+                                {/* Rich Text Editor */}
+                                <div className="flex-1 bg-gray-50 p-4">
+                                    <RichTextEditor
+                                        key={activeSection} // Force remount on tab switch for simplicity
+                                        content={activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita}
+                                        onChange={(newHtml) => {
+                                            if (activeSection === 'acta') {
+                                                setCurrentTemplate({ ...currentTemplate, contentActa: newHtml });
+                                            } else {
+                                                setCurrentTemplate({ ...currentTemplate, contentBanderita: newHtml });
+                                            }
+                                        }}
+                                        placeholder={`Escribe el contenido para ${activeSection === 'acta' ? 'el Acta' : 'la Certificación'}...`}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -285,7 +418,7 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
                                 Nueva: {currentTemplate.title}
                             </h2>
                             <button onClick={exportToWord} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
-                                <Download size={18} /> Descargar Word
+                                <Download size={18} /> Descargar Word ({activeSection === 'acta' ? 'Paso 1' : 'Paso 2'})
                             </button>
                         </div>
 
@@ -298,45 +431,68 @@ En la ciudad de {{CIUDAD}}, a los {{DIA}} días del mes de {{MES}} del año {{A�
                                         <PenTool className="text-indigo-600" /> Completar Datos
                                     </h3>
 
-                                    <div className="space-y-4">
-                                        {extractVariables(currentTemplate.content).length === 0 ? (
-                                            <p className="text-gray-500 italic text-center py-4">Esta plantilla no tiene variables dinámicas.</p>
-                                        ) : (
-                                            extractVariables(currentTemplate.content).map(variable => (
-                                                <div key={variable}>
-                                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                                                        {variable}
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={formData[variable] || ''}
-                                                        onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
-                                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
-                                                        placeholder={`Ingresar ${variable.toLowerCase()}...`}
-                                                    />
-                                                </div>
-                                            ))
-                                        )}
+                                    <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                                        {Object.keys(formData).map(variable => (
+                                            <div key={variable}>
+                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                    {variable}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={formData[variable] || ''}
+                                                    onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
+                                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
+                                                    placeholder={`Ingresar ${variable.toLowerCase()}...`}
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
 
                             {/* Panel de Vista Previa A4 */}
-                            <div className="lg:col-span-8 bg-gray-200 rounded-xl p-8 flex justify-center min-h-[800px] overflow-auto border-inner shadow-inner">
-                                <div
-                                    id="document-preview"
-                                    className="bg-white shadow-2xl p-[2.5cm] w-[21cm] min-h-[29.7cm] text-black font-serif text-justify leading-relaxed whitespace-pre-wrap"
-                                >
-                                    {/* Renderizado de Reemplazo */}
-                                    {(() => {
-                                        let text = currentTemplate.content;
-                                        Object.keys(formData).forEach(key => {
-                                            const val = formData[key] || `[${key}]`; // Muestra placeholder si está vacío
-                                            // Reemplazo global seguro
-                                            text = text.replaceAll(`{{${key}}}`, val);
-                                        });
-                                        return text;
-                                    })()}
+                            <div className="lg:col-span-8">
+                                {/* Preview Tabs */}
+                                <div className="flex gap-2 mb-4">
+                                    {currentTemplate.hasActa && (
+                                        <button
+                                            onClick={() => setActiveSection('acta')}
+                                            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'acta' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                                        >
+                                            Ver Paso 1: Acta
+                                        </button>
+                                    )}
+                                    {currentTemplate.hasBanderita && (
+                                        <button
+                                            onClick={() => setActiveSection('banderita')}
+                                            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'banderita' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                                        >
+                                            Ver Paso 2: Banderita
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="bg-gray-200 rounded-xl p-8 flex justify-center min-h-[800px] overflow-auto border-inner shadow-inner">
+                                    <div
+                                        id="document-preview"
+                                        className="bg-white shadow-2xl p-[2.5cm] w-[21cm] min-h-[29.7cm] text-black leading-relaxed whitespace-pre-wrap outline-none"
+                                        style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt' }}
+                                    >
+                                        {/* Renderizado de Reemplazo */}
+                                        {(() => {
+                                            const rawContent = activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita;
+                                            let text = rawContent || '';
+
+                                            // Reemplazo de variables
+                                            Object.keys(formData).forEach(key => {
+                                                const val = formData[key] || `<span style="color:red; background:#fee">[${key}]</span>`;
+                                                // Reemplazo global
+                                                text = text.replaceAll(`{{${key}}}`, val);
+                                            });
+
+                                            return <div dangerouslySetInnerHTML={{ __html: text }} />;
+                                        })()}
+                                    </div>
                                 </div>
                             </div>
 
