@@ -179,6 +179,7 @@ export default function App() {
     // Estado para Generación (Certificación)
     const [formData, setFormData] = useState({});
     const [certificationClient, setCertificationClient] = useState(null); // Objeto cliente seleccionado
+    const [clientSearchText, setClientSearchText] = useState(''); // Estado para el buscador de clientes
     const [certificationId, setCertificationId] = useState(null); // ID del borrador activo
     const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved
 
@@ -289,6 +290,7 @@ export default function App() {
         setCurrentTemplate(template);
         // Reset state
         setCertificationClient(null);
+        setClientSearchText(''); // Reset search text
         setCertificationId(null);
         setSaveStatus('idle');
 
@@ -369,17 +371,36 @@ export default function App() {
 
     // --- ACCIONES CLIENTES ---
     const handleNewClient = async (name) => {
-        // Simple prompt creation for now, or could use modal
-        // Using the Autocomplete create flow implicitly via "Select" loop? 
-        // For now assumption: User uses autocomplete. If not found, we could offer "Crear".
-        // Let's assume user must CREATE client in CLIENTS view if not exists? 
-        // Or easier: "Crear Nuevo" button in Autocomplete.
-        // Lets stick to simple "Select" from existing. 
-        // ... User requested "vayan a nombre de una persona". 
-        // If client doesn't exist, we should probably create it on the fly.
-        // Let's add a "Crear Cliente" quick action in Generator if possible. 
-        // For simplicity in this iteration: If typing name and no results, allow "Create [Name]".
-        // We will stick to the provided Autocomplete.
+        // Placeholder removed
+    };
+
+    const handleCreateClient = async (name) => {
+        if (!name) return;
+        try {
+            const docRef = await addDoc(collection(db, "clients"), {
+                name: name.toUpperCase(),
+                dni: '',
+                address: '',
+                email: '',
+                phone: '',
+                createdAt: serverTimestamp()
+            });
+            const newClient = { id: docRef.id, name: name.toUpperCase(), dni: '' };
+            setCertificationClient(newClient);
+            setClientSearchText('');
+
+            // También auto-rellenamos el formulario
+            setFormData(prev => ({
+                ...prev,
+                ['NOMBRE']: newClient.name,
+                ['CLIENTE']: newClient.name,
+                ['COMPARECIENTE']: newClient.name
+            }));
+
+        } catch (error) {
+            console.error("Error creating client:", error);
+            alert("Error al crear cliente.");
+        }
     };
 
     // --- RENDER ---
@@ -482,7 +503,7 @@ export default function App() {
                                             <td className="p-4 text-indigo-600 font-medium">{cert.templateTitle}</td>
                                             <td className="p-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${cert.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                        cert.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                                                    cert.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
                                                     }`}>
                                                     {cert.status === 'completed' ? 'Finalizado' : 'Borrador'}
                                                 </span>
@@ -660,14 +681,22 @@ export default function App() {
 
                                     {!certificationClient ? (
                                         <div className="space-y-3">
-                                            <p className="text-sm text-gray-500">Busca el cliente para asociar a esta certificación.</p>
+                                            <p className="text-sm text-gray-500">Busca el cliente o crea uno nuevo.</p>
                                             <AutocompleteInput
                                                 label=""
-                                                value=""
-                                                onChange={() => { }}
+                                                value={clientSearchText}
+                                                onChange={setClientSearchText}
                                                 onSelectResult={handleClientSelect}
                                                 placeholder="Escribe nombre del cliente..."
                                             />
+                                            {clientSearchText.length > 2 && (
+                                                <button
+                                                    onClick={() => handleCreateClient(clientSearchText)}
+                                                    className="w-full py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
+                                                >
+                                                    <Plus size={16} /> Crear nuevo cliente: "{clientSearchText.toUpperCase()}"
+                                                </button>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="bg-green-50 p-4 rounded-lg border border-green-200 relative">
