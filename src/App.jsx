@@ -24,19 +24,24 @@ const extractVariables = (text) => {
 const RichTextEditor = ({ content, onChange, placeholder }) => {
     const editorRef = useRef(null);
 
+    // Sync content ONLY when it changes externally and is different
     useEffect(() => {
         if (editorRef.current && content !== editorRef.current.innerHTML) {
-            if (content === '' || content === '<br>') {
-                editorRef.current.innerHTML = '';
-            } else if (!editorRef.current.innerText.trim() && !content) {
-                editorRef.current.innerHTML = '';
-            }
+            // Need to preserve cursor if focused? No, if content changed externally we likely want to update.
+            // But if it's a loopback (type -> state -> prop), we must NOT update if innerHTML matches.
+            // But here innerHTML might differ slightly (browser normalization).
+            // A simple check is: if we are focused, assume we are the source of truth for now?
+            // No, that breaks collaboration or format buttons.
+            // Best bet: perform the update, but the check must be robust.
+            // HOWEVER, the main issue was dangerouslySetInnerHTML forcing re-render.
+            // With that removed, this useEffect is the only updater.
+            editorRef.current.innerHTML = content || '';
         }
     }, [content]);
 
     const handleInput = () => {
         const html = editorRef.current.innerHTML;
-        onChange(html);
+        if (onChange) onChange(html);
     };
 
     const execCmd = (command) => {
@@ -69,7 +74,6 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
                     minHeight: '200px'
                 }}
                 onInput={handleInput}
-                dangerouslySetInnerHTML={{ __html: content }}
                 placeholder={placeholder}
             />
             <div className="px-4 py-2 bg-yellow-50 text-xs text-yellow-700 border-t flex justify-between">
