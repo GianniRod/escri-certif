@@ -454,7 +454,7 @@ export default function App() {
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('DASHBOARD')}>
                         {/* Logo replaced with provided image */}
                         <div className="p-0 rounded-lg">
-                            <img src="https://i.postimg.cc/mZyWsFf3/Logo-SBV-Retina.png" alt="Logo" className="h-10 w-auto" />
+                            <img src="https://i.postimg.cc/mZyWsFf3/Logo-SBV-Retina.png" alt="Logo" className="h-24 w-auto" />
                         </div>
                         <div>
                             <h1 className="text-xl font-bold tracking-wide text-gray-900">Gestor certificaciones</h1>
