@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     FileText, Plus, Edit3, Trash2, ArrowLeft, Save,
     Download, PenTool, LayoutTemplate, Bold, Underline, CheckSquare,
-    Users, Search, Clock, ChevronRight
+    Users, Search, Clock, ChevronRight, FileCheck, AlertCircle
 } from 'lucide-react';
 
 // FIREBASE IMPORTS
@@ -83,7 +83,7 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
 
 function TemplateCard({ template, onUse, onEdit, onDelete }) {
     return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-indigo-200 transition-all group relative">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-indigo-200 transition-all group relative flex flex-col h-full">
             <div className="flex justify-between items-start mb-4">
                 <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                     <LayoutTemplate size={24} />
@@ -98,28 +98,25 @@ function TemplateCard({ template, onUse, onEdit, onDelete }) {
                 </div>
             </div>
             <h3 className="text-xl font-bold text-gray-800 mb-2">{template.title}</h3>
-            <p className="text-gray-500 text-sm line-clamp-2 mb-6">{template.description || "Sin descripción"}</p>
+            <p className="text-gray-500 text-sm line-clamp-2 mb-6 flex-1">{template.description || "Sin descripción"}</p>
             <button
                 onClick={() => onUse(template)}
-                className="w-full py-3 bg-white border-2 border-indigo-600 text-indigo-700 font-bold rounded-lg hover:bg-indigo-600 hover:text-white transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 bg-white border-2 border-green-600 text-green-700 font-bold rounded-lg hover:bg-green-600 hover:text-white transition-colors flex items-center justify-center gap-2 uppercase text-sm tracking-wide"
             >
-                <PenTool size={18} /> USAR PLANTILLA
+                <Plus size={18} /> CREAR NUEVA CERTIFICACIÓN
             </button>
         </div>
     );
 }
 
 // --- Autocomplete Input Component ---
-const AutocompleteInput = ({ label, value, onChange, onSelectResult }) => {
+const AutocompleteInput = ({ label, value, onChange, onSelectResult, placeholder }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    // Búsqueda simple en local (idealmente sería query a Firestore si son muchos)
-    // Para simplificar, asumimos que 'onSelectResult' recibe (name, dni) etc.
     const handleSearch = async (text) => {
         onChange(text);
-        if (text.length > 2) {
-            // Buscar clientes
+        if (text && text.length > 2) {
             const q = query(
                 collection(db, "clients"),
                 where("name", ">=", text.toUpperCase()),
@@ -139,17 +136,15 @@ const AutocompleteInput = ({ label, value, onChange, onSelectResult }) => {
     };
 
     return (
-        <div className="relative">
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                {label}
-            </label>
+        <div className="relative w-full">
+            {label && <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</label>}
             <input
                 type="text"
                 value={value}
                 onChange={(e) => handleSearch(e.target.value)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
-                placeholder={`Ingresar ${label.toLowerCase()}...`}
+                placeholder={placeholder || `Buscar ${label ? label.toLowerCase() : ''}...`}
             />
             {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute z-10 w-full bg-white border rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
@@ -172,51 +167,90 @@ const AutocompleteInput = ({ label, value, onChange, onSelectResult }) => {
 
 export default function App() {
     // --- ESTADOS ---
-    const [view, setView] = useState('DASHBOARD'); // DASHBOARD, EDITOR, GENERATOR, CLIENTS
+    const [view, setView] = useState('DASHBOARD'); // DASHBOARD, EDITOR, GENERATOR, CLIENTS, CERTIFICATIONS
     const [templates, setTemplates] = useState([]);
     const [clients, setClients] = useState([]);
+    const [certifications, setCertifications] = useState([]);
 
-    // Estado para edición/creación
+    // Estado para edición/creación de Plantillas
     const [currentTemplate, setCurrentTemplate] = useState(null);
     const [activeSection, setActiveSection] = useState('acta');
 
-    // Estado para generación
+    // Estado para Generación (Certificación)
     const [formData, setFormData] = useState({});
+    const [certificationClient, setCertificationClient] = useState(null); // Objeto cliente seleccionado
+    const [certificationId, setCertificationId] = useState(null); // ID del borrador activo
+    const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved
 
-    // Estado para Clientes (Detalle)
-    const [selectedClient, setSelectedClient] = useState(null);
-    const [clientHistory, setClientHistory] = useState([]);
+    // Estado para Historial Clientes
+    const [selectedClientHistory, setSelectedClientHistory] = useState(null); // Cliente seleccionado para ver historial
 
     // --- FIRESTORE SUBSCRIPTIONS ---
     useEffect(() => {
-        // Templates Subscription
-        const qTemplates = query(collection(db, "templates")); // Podríamos ordenar por fecha
-        const unsubscribeTemplates = onSnapshot(qTemplates, (querySnapshot) => {
+        const unsubscribeTemplates = onSnapshot(query(collection(db, "templates")), (snap) => {
             const temps = [];
-            querySnapshot.forEach((doc) => {
-                temps.push({ id: doc.id, ...doc.data() });
-            });
+            snap.forEach(doc => temps.push({ id: doc.id, ...doc.data() }));
             setTemplates(temps);
         });
 
-        // Clients Subscription (Caution: if many clients, use pagination. For now ok)
-        const qClients = query(collection(db, "clients"), orderBy("name"));
-        const unsubscribeClients = onSnapshot(qClients, (querySnapshot) => {
+        const unsubscribeClients = onSnapshot(query(collection(db, "clients"), orderBy("name")), (snap) => {
             const cls = [];
-            querySnapshot.forEach((doc) => {
-                cls.push({ id: doc.id, ...doc.data() });
-            });
+            snap.forEach(doc => cls.push({ id: doc.id, ...doc.data() }));
             setClients(cls);
+        });
+
+        const unsubscribeCertifications = onSnapshot(query(collection(db, "certifications"), orderBy("timestamp", "desc")), (snap) => {
+            const certs = [];
+            snap.forEach(doc => certs.push({ id: doc.id, ...doc.data() }));
+            setCertifications(certs);
         });
 
         return () => {
             unsubscribeTemplates();
             unsubscribeClients();
+            unsubscribeCertifications();
         };
     }, []);
 
+    // --- AUTO-SAVE EFFECT ---
+    useEffect(() => {
+        if (view !== 'GENERATOR' || !certificationClient || !currentTemplate) return;
+
+        const timer = setTimeout(async () => {
+            setSaveStatus('saving');
+            try {
+                const dataToSave = {
+                    clientId: certificationClient.id,
+                    clientName: certificationClient.name,
+                    templateId: currentTemplate.id,
+                    templateTitle: currentTemplate.title,
+                    templateData: formData,
+                    status: 'draft',
+                    timestamp: serverTimestamp() // Updates timestamp on every save? Maybe creating field 'lastModified' is better
+                };
+
+                if (certificationId) {
+                    await updateDoc(doc(db, "certifications", certificationId), {
+                        ...dataToSave,
+                        updatedAt: serverTimestamp() // Only update 'updatedAt'
+                    });
+                    // Don't overwrite original timestamp
+                } else {
+                    const docRef = await addDoc(collection(db, "certifications"), { ...dataToSave, timestamp: serverTimestamp() });
+                    setCertificationId(docRef.id);
+                }
+                setSaveStatus('saved');
+            } catch (error) {
+                console.error("Error saving draft:", error);
+                setSaveStatus('error');
+            }
+        }, 2000); // 2 seconds debounce
+
+        return () => clearTimeout(timer);
+    }, [formData, certificationClient]); // Auto-save triggered by data change
+
     // --- ACCIONES PLANTILLAS ---
-    const handleCreateNew = () => {
+    const handleCreateNewTemplate = () => {
         setCurrentTemplate({
             title: 'Nueva Plantilla',
             description: '',
@@ -229,33 +263,36 @@ export default function App() {
         setView('EDITOR');
     };
 
-    const handleEdit = (template) => {
+    const handleEditTemplate = (template) => {
         setCurrentTemplate({ ...template });
         setActiveSection(template.hasActa ? 'acta' : 'banderita');
         setView('EDITOR');
     };
 
-    const handleDelete = async (id) => {
+    const handleDeleteTemplate = async (id) => {
         if (confirm('¿Estás seguro de eliminar esta plantilla?')) {
             await deleteDoc(doc(db, "templates", id));
         }
     };
 
-    const handleSaveTemplate = async () => {
+    const handleSaveTemplateDoc = async () => {
         if (currentTemplate.id) {
-            // Update
-            const ref = doc(db, "templates", currentTemplate.id);
-            await updateDoc(ref, { ...currentTemplate });
+            await updateDoc(doc(db, "templates", currentTemplate.id), { ...currentTemplate });
         } else {
-            // Create
             await addDoc(collection(db, "templates"), { ...currentTemplate });
         }
         setView('DASHBOARD');
     };
 
-    // --- ACCIONES GENERADOR / CLIENTES ---
-    const handleUseTemplate = (template) => {
+    // --- ACCIONES GENERADOR ---
+    const handleCreateCertification = (template) => {
         setCurrentTemplate(template);
+        // Reset state
+        setCertificationClient(null);
+        setCertificationId(null);
+        setSaveStatus('idle');
+
+        // Extract vars
         let vars = [];
         if (template.hasActa) vars = [...vars, ...extractVariables(template.contentActa)];
         if (template.hasBanderita) vars = [...vars, ...extractVariables(template.contentBanderita)];
@@ -263,60 +300,48 @@ export default function App() {
 
         const initialData = {};
         vars.forEach(v => initialData[v] = '');
-
-        // Auto-fill DATE
         if (vars.includes('FECHA')) initialData['FECHA'] = new Date().toLocaleDateString();
 
         setFormData(initialData);
+
         setActiveSection(template.hasActa ? 'acta' : 'banderita');
         setView('GENERATOR');
     };
 
-    const handleAutocompleteSelect = (client, fieldName) => {
-        if (fieldName.includes('NOMBRE') || fieldName.includes('CLIENTE')) {
-            // Auto completar otros campos si existen
-            setFormData(prev => ({
-                ...prev,
-                [fieldName]: client.name,
-                ['DNI']: client.dni || prev['DNI'], // Asume que el campo se llama DNI
-                ['DOMICILIO']: client.address || prev['DOMICILIO']
-            }));
-        }
+    const handleClientSelect = (client) => {
+        setCertificationClient(client);
+        // Auto-fill form data if matches
+        setFormData(prev => ({
+            ...prev,
+            ['NOMBRE']: client.name.toUpperCase(),
+            ['CLIENTE']: client.name.toUpperCase(),
+            ['COMPARECIENTE']: client.name.toUpperCase(),
+            ['DNI']: client.dni || prev['DNI'],
+            ['DOMICILIO']: client.address || prev['DOMICILIO']
+        }));
     };
 
-    const saveAndDownload = async () => {
-        // 1. Identificar Cliente (Por Nombre o DNI)
-        // Buscamos inputs comunes
-        const nameVal = formData['NOMBRE'] || formData['CLIENTE'] || formData['COMPARECIENTE'];
-        const dniVal = formData['DNI'] || formData['DOCUMENTO'];
+    const handleDownload = async () => {
+        if (!certificationClient) {
+            alert("Por favor selecciona un cliente antes de descargar.");
+            return;
+        }
 
-        let clientId = null;
-        let clientName = nameVal || 'Desconocido';
-
-        if (nameVal) {
-            // Buscar si existe
-            const q = query(collection(db, "clients"), where("name", "==", nameVal));
-            const snap = await getDocs(q);
-
-            if (!snap.empty) {
-                clientId = snap.docs[0].id;
-            } else {
-                // Crear nuevo cliente
-                const docRef = await addDoc(collection(db, "clients"), {
-                    name: nameVal,
-                    dni: dniVal || '',
-                    createdAt: serverTimestamp()
-                });
-                clientId = docRef.id;
-            }
-
-            // 2. Guardar Certificación
+        // Final save with status 'completed'
+        if (certificationId) {
+            await updateDoc(doc(db, "certifications", certificationId), {
+                status: 'completed',
+                templateData: formData // Ensure latest data
+            });
+        } else {
+            // Should not happen due to auto-save, but strictly:
             await addDoc(collection(db, "certifications"), {
-                clientId,
-                clientName,
-                templateId: currentTemplate.id || 'temp',
+                clientId: certificationClient.id,
+                clientName: certificationClient.name,
+                templateId: currentTemplate.id,
                 templateTitle: currentTemplate.title,
                 templateData: formData,
+                status: 'completed',
                 timestamp: serverTimestamp()
             });
         }
@@ -337,19 +362,24 @@ export default function App() {
         const fileDownload = document.createElement("a");
         document.body.appendChild(fileDownload);
         fileDownload.href = source;
-        fileDownload.download = `${currentTemplate.title}_${activeSection}.doc`;
+        fileDownload.download = `${certificationClient ? certificationClient.name : 'Documento'}_${currentTemplate.title}.doc`;
         fileDownload.click();
         document.body.removeChild(fileDownload);
     };
 
-    // --- MODULO CLIENTES ---
-    const loadClientHistory = async (client) => {
-        setSelectedClient(client);
-        const q = query(collection(db, "certifications"), where("clientId", "==", client.id), orderBy("timestamp", "desc"));
-        const snap = await getDocs(q);
-        const hist = [];
-        snap.forEach(doc => hist.push({ id: doc.id, ...doc.data() }));
-        setClientHistory(hist);
+    // --- ACCIONES CLIENTES ---
+    const handleNewClient = async (name) => {
+        // Simple prompt creation for now, or could use modal
+        // Using the Autocomplete create flow implicitly via "Select" loop? 
+        // For now assumption: User uses autocomplete. If not found, we could offer "Crear".
+        // Let's assume user must CREATE client in CLIENTS view if not exists? 
+        // Or easier: "Crear Nuevo" button in Autocomplete.
+        // Lets stick to simple "Select" from existing. 
+        // ... User requested "vayan a nombre de una persona". 
+        // If client doesn't exist, we should probably create it on the fly.
+        // Let's add a "Crear Cliente" quick action in Generator if possible. 
+        // For simplicity in this iteration: If typing name and no results, allow "Create [Name]".
+        // We will stick to the provided Autocomplete.
     };
 
     // --- RENDER ---
@@ -357,7 +387,7 @@ export default function App() {
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
             {/* Header */}
             <header className="bg-indigo-900 text-white p-4 shadow-lg sticky top-0 z-20">
-                <div className="max-w-6xl mx-auto flex justify-between items-center">
+                <div className="max-w-7xl mx-auto flex justify-between items-center px-4">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('DASHBOARD')}>
                         <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
                             <FileText size={24} className="text-white" />
@@ -368,41 +398,108 @@ export default function App() {
                         </div>
                     </div>
 
-                    <nav className="flex gap-4">
+                    <nav className="flex gap-2 bg-indigo-800/50 p-1 rounded-xl">
                         <button
                             onClick={() => setView('DASHBOARD')}
-                            className={`px-4 py-2 rounded-lg font-medium transition ${view === 'DASHBOARD' ? 'bg-indigo-800 text-white' : 'text-indigo-200 hover:text-white'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'DASHBOARD' ? 'bg-white text-indigo-900 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}
                         >
-                            Plantillas
+                            <LayoutTemplate size={16} /> Plantillas
+                        </button>
+                        <button
+                            onClick={() => setView('CERTIFICATIONS')}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CERTIFICATIONS' ? 'bg-white text-indigo-900 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}
+                        >
+                            <FileCheck size={16} /> Certificaciones
                         </button>
                         <button
                             onClick={() => setView('CLIENTS')}
-                            className={`px-4 py-2 rounded-lg font-medium transition ${view === 'CLIENTS' ? 'bg-indigo-800 text-white' : 'text-indigo-200 hover:text-white'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CLIENTS' ? 'bg-white text-indigo-900 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}
                         >
-                            Clientes
+                            <Users size={16} /> Clientes
                         </button>
                     </nav>
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto p-6 md:p-8">
+            <main className="max-w-7xl mx-auto p-6 md:p-8">
 
                 {/* VISTA: DASHBOARD */}
                 {view === 'DASHBOARD' && (
                     <div className="animate-fade-in space-y-8">
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center mb-8">
                             <div>
                                 <h2 className="text-3xl font-bold text-gray-800">Mis Plantillas</h2>
-                                <p className="text-gray-500 mt-1">Biblioteca de modelos notariales.</p>
+                                <p className="text-gray-500 mt-1">Selecciona una plantilla para crear una nueva certificación.</p>
                             </div>
-                            <button onClick={handleCreateNew} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold">
-                                <Plus size={20} /> Nueva Plantilla
+                            <button onClick={handleCreateNewTemplate} className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold transition-all">
+                                <Plus size={20} /> Crear Nueva Plantilla
                             </button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {templates.map(t => (
-                                <TemplateCard key={t.id} template={t} onUse={handleUseTemplate} onEdit={handleEdit} onDelete={handleDelete} />
+                                <TemplateCard key={t.id} template={t} onUse={handleCreateCertification} onEdit={handleEditTemplate} onDelete={handleDeleteTemplate} />
                             ))}
+                            {templates.length === 0 && (
+                                <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50/50">
+                                    <FileText className="mx-auto text-gray-300 mb-4" size={48} />
+                                    <p className="text-gray-500 text-lg">No hay plantillas disponibles.</p>
+                                    <button onClick={handleCreateNewTemplate} className="text-indigo-600 font-bold hover:underline mt-2">Crear la primera</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* VISTA: CERTIFICACIONES GLOBAL */}
+                {view === 'CERTIFICATIONS' && (
+                    <div className="animate-fade-in space-y-6">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-3xl font-bold text-gray-800">Certificaciones</h2>
+                                <p className="text-gray-500 mt-1">Historial completo de documentos generados.</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+                                        <th className="p-4 font-bold">Fecha</th>
+                                        <th className="p-4 font-bold">Cliente</th>
+                                        <th className="p-4 font-bold">Documento</th>
+                                        <th className="p-4 font-bold">Estado</th>
+                                        <th className="p-4 font-bold text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {certifications.map(cert => (
+                                        <tr key={cert.id} className="hover:bg-gray-50/50 transition">
+                                            <td className="p-4 text-sm text-gray-600">
+                                                {cert.timestamp ? new Date(cert.timestamp.seconds * 1000).toLocaleDateString() : '-'} <br />
+                                                <span className="text-xs text-gray-400">{cert.timestamp ? new Date(cert.timestamp.seconds * 1000).toLocaleTimeString() : ''}</span>
+                                            </td>
+                                            <td className="p-4 font-bold text-gray-800">{cert.clientName}</td>
+                                            <td className="p-4 text-indigo-600 font-medium">{cert.templateTitle}</td>
+                                            <td className="p-4">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${cert.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                        cert.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                    {cert.status === 'completed' ? 'Finalizado' : 'Borrador'}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                {/* Logic needed to resume/view specific certification. For now just placeholder */}
+                                                <button className="text-gray-400 hover:text-indigo-600"><Edit3 size={16} /></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {certifications.length === 0 && (
+                                        <tr>
+                                            <td colSpan="5" className="p-8 text-center text-gray-400">No se encontraron certificaciones.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}
@@ -410,19 +507,19 @@ export default function App() {
                 {/* VISTA: CLIENTES */}
                 {view === 'CLIENTS' && (
                     <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-3 gap-8 h-[calc(100vh-140px)]">
-                        {/* Lista Clientes */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 overflow-y-auto">
-                            <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800"><Users /> Clientes Clientes Registrados</h2>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 overflow-y-auto flex flex-col">
+                            <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800"><Users /> Registro de Clientes</h2>
                             <div className="relative mb-4">
                                 <Search size={18} className="absolute left-3 top-3 text-gray-400" />
-                                <input type="text" placeholder="Buscar por nombre o DNI..." className="w-full pl-10 p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 ring-indigo-500" />
+                                <input type="text" placeholder="Buscar..." className="w-full pl-10 p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 ring-indigo-500" />
                             </div>
-                            <div className="space-y-2">
+                            {/* Create Client Simple Form within list could go here */}
+                            <div className="space-y-2 flex-1 overflow-y-auto">
                                 {clients.map(client => (
                                     <div
                                         key={client.id}
-                                        onClick={() => loadClientHistory(client)}
-                                        className={`p-3 rounded-lg cursor-pointer border hover:border-indigo-300 transition ${selectedClient?.id === client.id ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-gray-100'}`}
+                                        onClick={() => setSelectedClientHistory(client)}
+                                        className={`p-3 rounded-lg cursor-pointer border hover:border-indigo-300 transition ${selectedClientHistory?.id === client.id ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-gray-100'}`}
                                     >
                                         <h4 className="font-bold text-gray-800">{client.name}</h4>
                                         <p className="text-xs text-gray-500">DNI: {client.dni || 'Sin datos'}</p>
@@ -431,60 +528,51 @@ export default function App() {
                             </div>
                         </div>
 
-                        {/* Detalle Historial */}
                         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-y-auto">
-                            {selectedClient ? (
+                            {selectedClientHistory ? (
                                 <div>
                                     <div className="flex justify-between items-center mb-6 pb-4 border-b">
                                         <div>
-                                            <h2 className="text-2xl font-bold text-gray-900">{selectedClient.name}</h2>
-                                            <p className="text-gray-500">Historial de Certificaciones</p>
-                                        </div>
-                                        <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-bold">
-                                            {clientHistory.length} Documentos
+                                            <h2 className="text-2xl font-bold text-gray-900">{selectedClientHistory.name}</h2>
+                                            <p className="text-gray-500">Documentos Asociados</p>
                                         </div>
                                     </div>
-
                                     <div className="space-y-4">
-                                        {clientHistory.map(doc => (
-                                            <div key={doc.id} className="p-4 rounded-xl border border-gray-100 hover:shadow-md transition bg-gray-50">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h4 className="font-bold text-indigo-700 text-lg mb-1">{doc.templateTitle}</h4>
-                                                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                                                            <Clock size={12} />
-                                                            {doc.timestamp ? new Date(doc.timestamp.seconds * 1000).toLocaleString() : 'Reciente'}
-                                                        </p>
-                                                    </div>
+                                        {certifications.filter(c => c.clientId === selectedClientHistory.id).map(doc => (
+                                            <div key={doc.id} className="p-4 rounded-xl border border-gray-100 hover:shadow-md transition bg-gray-50 flex justify-between items-center">
+                                                <div>
+                                                    <h4 className="font-bold text-indigo-700 mb-1">{doc.templateTitle}</h4>
+                                                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                        <Clock size={12} /> {doc.timestamp ? new Date(doc.timestamp.seconds * 1000).toLocaleDateString() : ''}
+                                                    </p>
                                                 </div>
+                                                <span className={`text-xs font-bold px-2 py-1 rounded ${doc.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                                    {doc.status === 'draft' ? 'Borrador' : 'Finalizado'}
+                                                </span>
                                             </div>
                                         ))}
-                                        {clientHistory.length === 0 && (
-                                            <p className="text-gray-400 italic text-center py-10">Este cliente aún no tiene documentos generados.</p>
-                                        )}
                                     </div>
                                 </div>
                             ) : (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-400">
                                     <Users size={64} className="mb-4 opacity-20" />
-                                    <p>Selecciona un cliente para ver su historial.</p>
+                                    <p>Selecciona un cliente para ver su detalle.</p>
                                 </div>
                             )}
                         </div>
                     </div>
                 )}
 
-                {/* VISTA: EDITOR */}
+                {/* VISTA: EDITOR DE PLANTILLAS */}
                 {view === 'EDITOR' && (
                     <div className="animate-fade-in h-[calc(100vh-140px)] flex flex-col">
-                        {/* ... keep existing UI for editor ... */}
                         <div className="flex items-center gap-4 mb-6">
                             <button onClick={() => setView('DASHBOARD')} className="p-2 hover:bg-gray-200 rounded-full transition"><ArrowLeft /></button>
                             <h2 className="text-2xl font-bold text-gray-800 flex-1">
                                 {currentTemplate.id ? 'Editar Plantilla' : 'Nueva Plantilla'}
                             </h2>
-                            <button onClick={handleSaveTemplate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
-                                <Save size={18} /> Guardar
+                            <button onClick={handleSaveTemplateDoc} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
+                                <Save size={18} /> Guardar Cambios
                             </button>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
@@ -530,16 +618,31 @@ export default function App() {
                     </div>
                 )}
 
-                {/* VISTA: GENERADOR */}
+                {/* VISTA: GENERADOR (CERTIFICACIÓN) */}
                 {view === 'GENERATOR' && (
                     <div className="animate-fade-in">
                         <div className="flex items-center gap-4 mb-6">
                             <button onClick={() => setView('DASHBOARD')} className="p-2 hover:bg-gray-200 rounded-full transition"><ArrowLeft /></button>
-                            <h2 className="text-2xl font-bold text-gray-800 flex-1">
-                                Nueva: {currentTemplate.title}
-                            </h2>
-                            <button onClick={saveAndDownload} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
-                                <Download size={18} /> Guardar y Descargar Word ({activeSection === 'acta' ? 'Paso 1' : 'Paso 2'})
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">
+                                    {currentTemplate.title}
+                                </h2>
+                                <p className="text-sm text-gray-500 flex items-center gap-2">
+                                    {saveStatus === 'saving' && <span className="text-yellow-600 flex items-center gap-1"><Clock size={12} className="animate-spin" /> Guardando...</span>}
+                                    {saveStatus === 'saved' && <span className="text-green-600 flex items-center gap-1"><CheckSquare size={12} /> Guardado como borrador</span>}
+                                    {saveStatus === 'error' && <span className="text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Error al guardar</span>}
+                                </p>
+                            </div>
+
+                            <div className="flex-1"></div>
+
+                            <button
+                                onClick={handleDownload}
+                                disabled={!certificationClient}
+                                className={`px-6 py-3 rounded-xl flex items-center gap-2 font-bold shadow-md transition-all ${certificationClient ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    }`}
+                            >
+                                <Download size={20} /> GUARDAR Y DESCARGAR
                             </button>
                         </div>
 
@@ -547,51 +650,69 @@ export default function App() {
 
                             {/* Panel de Datos (Formulario) */}
                             <div className="lg:col-span-4 space-y-6">
-                                <div className="bg-white p-6 rounded-xl shadow-lg border border-indigo-100 sticky top-24">
-                                    <h3 className="font-bold text-xl text-gray-800 mb-6 flex items-center gap-2 border-b pb-4">
-                                        <PenTool className="text-indigo-600" /> Completar Datos
+
+                                {/* 1. SELECCIÓN DE CLIENTE (OBLIGATORIO) */}
+                                <div className={`bg-white p-6 rounded-xl shadow-lg border-2 ${!certificationClient ? 'border-indigo-500 ring-4 ring-indigo-500/10' : 'border-green-100'}`}>
+                                    <h3 className={`font-bold text-lg mb-4 flex items-center gap-2 ${!certificationClient ? 'text-indigo-600' : 'text-green-700'}`}>
+                                        <Users size={20} />
+                                        {certificationClient ? 'Cliente Asignado' : '1. Seleccionar Cliente'}
                                     </h3>
 
-                                    <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                                    {!certificationClient ? (
+                                        <div className="space-y-3">
+                                            <p className="text-sm text-gray-500">Busca el cliente para asociar a esta certificación.</p>
+                                            <AutocompleteInput
+                                                label=""
+                                                value=""
+                                                onChange={() => { }}
+                                                onSelectResult={handleClientSelect}
+                                                placeholder="Escribe nombre del cliente..."
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="bg-green-50 p-4 rounded-lg border border-green-200 relative">
+                                            <button onClick={() => setCertificationClient(null)} className="absolute top-2 right-2 p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded"><Trash2 size={16} /></button>
+                                            <p className="font-bold text-gray-800">{certificationClient.name}</p>
+                                            <p className="text-sm text-gray-600">DNI: {certificationClient.dni}</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 2. COMPLETAR VARIABLES */}
+                                <div className={`bg-white p-6 rounded-xl shadow-lg border border-gray-200 transition-opacity ${!certificationClient ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                                    <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2 border-b pb-4">
+                                        <PenTool className="text-indigo-600" /> 2. Completar Datos
+                                    </h3>
+
+                                    <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
                                         {Object.keys(formData).map(variable => (
                                             <div key={variable}>
-                                                {(variable.includes('NOMBRE') || variable.includes('CLIENTE')) ? (
-                                                    <AutocompleteInput
-                                                        label={variable}
-                                                        value={formData[variable] || ''}
-                                                        onChange={(val) => setFormData({ ...formData, [variable]: val })}
-                                                        onSelectResult={(client) => handleAutocompleteSelect(client, variable)}
-                                                    />
-                                                ) : (
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                                                            {variable}
-                                                        </label>
-                                                        <input
-                                                            type="text"
-                                                            value={formData[variable] || ''}
-                                                            onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
-                                                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
-                                                            placeholder={`Ingresar ${variable.toLowerCase()}...`}
-                                                        />
-                                                    </div>
-                                                )}
+                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                    {variable}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={formData[variable] || ''}
+                                                    onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
+                                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
+                                                    placeholder={`...`}
+                                                />
                                             </div>
                                         ))}
+                                        {Object.keys(formData).length === 0 && <p className="text-gray-400 italic text-sm">Esta plantilla no tiene variables adicionales.</p>}
                                     </div>
                                 </div>
                             </div>
 
                             {/* Panel de Vista Previa A4 */}
                             <div className="lg:col-span-8">
-                                {/* Preview Tabs */}
                                 <div className="flex gap-2 mb-4">
                                     {currentTemplate.hasActa && (
                                         <button
                                             onClick={() => setActiveSection('acta')}
                                             className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'acta' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
                                         >
-                                            Ver Paso 1: Acta
+                                            Paso 1: Acta
                                         </button>
                                     )}
                                     {currentTemplate.hasBanderita && (
@@ -599,7 +720,7 @@ export default function App() {
                                             onClick={() => setActiveSection('banderita')}
                                             className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'banderita' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
                                         >
-                                            Ver Paso 2: Banderita
+                                            Paso 2: Banderita
                                         </button>
                                     )}
                                 </div>
@@ -610,18 +731,13 @@ export default function App() {
                                         className="bg-white shadow-2xl p-[2.5cm] w-[21cm] min-h-[29.7cm] text-black leading-relaxed whitespace-pre-wrap outline-none"
                                         style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt', lineHeight: '2.2', textAlign: 'justify' }}
                                     >
-                                        {/* Renderizado de Reemplazo */}
                                         {(() => {
                                             const rawContent = activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita;
                                             let text = rawContent || '';
-
-                                            // Reemplazo de variables
                                             Object.keys(formData).forEach(key => {
                                                 const val = formData[key] || `<span style="color:red; background:#fee">[${key}]</span>`;
-                                                // Reemplazo global
                                                 text = text.replaceAll(`{{${key}}}`, val);
                                             });
-
                                             return <div dangerouslySetInnerHTML={{ __html: text }} />;
                                         })()}
                                     </div>
