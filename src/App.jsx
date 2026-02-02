@@ -87,13 +87,13 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
 
 function TemplateCard({ template, onUse, onEdit, onDelete }) {
     return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-indigo-200 transition-all group relative flex flex-col h-full">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-gray-400 transition-all group relative flex flex-col h-full">
             <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <div className="p-3 bg-gray-100 rounded-lg text-gray-800 group-hover:bg-gray-800 group-hover:text-white transition-colors">
                     <LayoutTemplate size={24} />
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => onEdit(template)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-indigo-600 tooltip" title="Editar Plantilla">
+                    <button onClick={() => onEdit(template)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-800 tooltip" title="Editar Plantilla">
                         <Edit3 size={16} />
                     </button>
                     <button onClick={() => onDelete(template.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 tooltip" title="Eliminar">
@@ -147,7 +147,7 @@ const AutocompleteInput = ({ label, value, onChange, onSelectResult, placeholder
                 value={value}
                 onChange={(e) => handleSearch(e.target.value)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50 transition-colors focus:bg-white"
                 placeholder={placeholder || `Buscar ${label ? label.toLowerCase() : ''}...`}
             />
             {showSuggestions && suggestions.length > 0 && (
@@ -155,7 +155,7 @@ const AutocompleteInput = ({ label, value, onChange, onSelectResult, placeholder
                     {suggestions.map(client => (
                         <div
                             key={client.id}
-                            className="p-3 hover:bg-indigo-50 cursor-pointer border-b last:border-0"
+                            className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-0"
                             onClick={() => onSelectResult(client)}
                         >
                             <p className="font-bold text-sm text-gray-800">{client.name}</p>
@@ -465,19 +465,19 @@ export default function App() {
                     <nav className="flex gap-2 bg-white/50 p-1 rounded-xl border border-amber-100">
                         <button
                             onClick={() => setView('DASHBOARD')}
-                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'DASHBOARD' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-indigo-600 hover:bg-white'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'DASHBOARD' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-600 hover:text-gray-800 hover:bg-white'}`}
                         >
                             <LayoutTemplate size={16} /> Plantillas
                         </button>
                         <button
                             onClick={() => setView('CERTIFICATIONS')}
-                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CERTIFICATIONS' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-indigo-600 hover:bg-white'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CERTIFICATIONS' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-600 hover:text-gray-800 hover:bg-white'}`}
                         >
                             <FileCheck size={16} /> Certificaciones
                         </button>
                         <button
                             onClick={() => setView('CLIENTS')}
-                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CLIENTS' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-indigo-600 hover:bg-white'}`}
+                            className={`px-4 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2 ${view === 'CLIENTS' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-600 hover:text-gray-800 hover:bg-white'}`}
                         >
                             <Users size={16} /> Clientes
                         </button>
@@ -507,7 +507,7 @@ export default function App() {
                                 <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50/50">
                                     <FileText className="mx-auto text-gray-300 mb-4" size={48} />
                                     <p className="text-gray-500 text-lg">No hay plantillas disponibles.</p>
-                                    <button onClick={handleCreateNewTemplate} className="text-indigo-600 font-bold hover:underline mt-2">Crear la primera</button>
+                                    <button onClick={handleCreateNewTemplate} className="text-gray-800 font-bold hover:underline mt-2">Crear la primera</button>
                                 </div>
                             )}
                         </div>
@@ -543,7 +543,7 @@ export default function App() {
                                                 <span className="text-xs text-gray-400">{cert.timestamp ? new Date(cert.timestamp.seconds * 1000).toLocaleTimeString() : ''}</span>
                                             </td>
                                             <td className="p-4 font-bold text-gray-800">{cert.clientName}</td>
-                                            <td className="p-4 text-indigo-600 font-medium">{cert.templateTitle}</td>
+                                            <td className="p-4 text-gray-800 font-medium">{cert.templateTitle}</td>
                                             <td className="p-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${cert.status === 'completed' ? 'bg-green-100 text-green-700' :
                                                     cert.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
@@ -554,7 +554,7 @@ export default function App() {
                                             <td className="p-4 text-right flex justify-end gap-2">
                                                 <button
                                                     onClick={() => handleResumeCertification(cert)}
-                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-indigo-600 tooltip transition-colors"
+                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-800 tooltip transition-colors"
                                                     title="Editar / Continuar"
                                                 >
                                                     <Edit3 size={16} />
@@ -587,7 +587,7 @@ export default function App() {
                             <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800"><Users /> Registro de Clientes</h2>
                             <div className="relative mb-4">
                                 <Search size={18} className="absolute left-3 top-3 text-gray-400" />
-                                <input type="text" placeholder="Buscar..." className="w-full pl-10 p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 ring-indigo-500" />
+                                <input type="text" placeholder="Buscar..." className="w-full pl-10 p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 ring-gray-800" />
                             </div>
                             {/* Create Client Simple Form within list could go here */}
                             <div className="space-y-2 flex-1 overflow-y-auto">
@@ -595,7 +595,7 @@ export default function App() {
                                     <div
                                         key={client.id}
                                         onClick={() => setSelectedClientHistory(client)}
-                                        className={`p-3 rounded-lg cursor-pointer border hover:border-indigo-300 transition ${selectedClientHistory?.id === client.id ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-gray-100'}`}
+                                        className={`p-3 rounded-lg cursor-pointer border hover:border-gray-400 transition ${selectedClientHistory?.id === client.id ? 'bg-gray-100 border-gray-800' : 'bg-white border-gray-100'}`}
                                     >
                                         <h4 className="font-bold text-gray-800">{client.name}</h4>
                                         <p className="text-xs text-gray-500">DNI: {client.dni || 'Sin datos'}</p>
@@ -617,7 +617,7 @@ export default function App() {
                                         {certifications.filter(c => c.clientId === selectedClientHistory.id).map(doc => (
                                             <div key={doc.id} className="p-4 rounded-xl border border-gray-100 hover:shadow-md transition bg-gray-50 flex justify-between items-center">
                                                 <div>
-                                                    <h4 className="font-bold text-indigo-700 mb-1">{doc.templateTitle}</h4>
+                                                    <h4 className="font-bold text-gray-900 mb-1">{doc.templateTitle}</h4>
                                                     <p className="text-xs text-gray-500 flex items-center gap-1">
                                                         <Clock size={12} /> {doc.timestamp ? new Date(doc.timestamp.seconds * 1000).toLocaleDateString() : ''}
                                                     </p>
@@ -647,7 +647,7 @@ export default function App() {
                             <h2 className="text-2xl font-bold text-gray-800 flex-1">
                                 {currentTemplate.id ? 'Editar Plantilla' : 'Nueva Plantilla'}
                             </h2>
-                            <button onClick={handleSaveTemplateDoc} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
+                            <button onClick={handleSaveTemplateDoc} className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
                                 <Save size={18} /> Guardar Cambios
                             </button>
                         </div>
@@ -662,8 +662,8 @@ export default function App() {
                                     <label className="flex items-center gap-2"><input type="checkbox" checked={currentTemplate.hasActa} onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasActa: e.target.checked })} /> Acta</label>
                                     <label className="flex items-center gap-2"><input type="checkbox" checked={currentTemplate.hasBanderita} onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasBanderita: e.target.checked })} /> Banderita</label>
                                 </div>
-                                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                                    <h4 className="font-bold text-indigo-900 mb-2">+ Variable</h4>
+                                <div className="bg-gray-100 p-4 rounded-lg border border-gray-200">
+                                    <h4 className="font-bold text-gray-900 mb-2">+ Variable</h4>
                                     <div className="flex gap-2">
                                         <input id="newVarInput" className="flex-1 p-2 border rounded text-sm" />
                                         <button onClick={() => {
@@ -673,14 +673,14 @@ export default function App() {
                                                 setCurrentTemplate({ ...currentTemplate, [key]: currentTemplate[key] + ` {{${v.toUpperCase()}}} ` });
                                                 document.getElementById('newVarInput').value = '';
                                             }
-                                        }} className="bg-indigo-600 text-white px-3 text-sm font-bold rounded">Add</button>
+                                        }} className="bg-gray-800 text-white px-3 text-sm font-bold rounded">Add</button>
                                     </div>
                                 </div>
                             </div>
                             <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border flex flex-col">
                                 <div className="flex border-b">
-                                    {currentTemplate.hasActa && <button onClick={() => setActiveSection('acta')} className={`px-6 py-3 font-bold text-sm ${activeSection === 'acta' ? 'text-indigo-600 border-b-2 border-indigo-600' : ''}`}>PASO 1: ACTA</button>}
-                                    {currentTemplate.hasBanderita && <button onClick={() => setActiveSection('banderita')} className={`px-6 py-3 font-bold text-sm ${activeSection === 'banderita' ? 'text-indigo-600 border-b-2 border-indigo-600' : ''}`}>PASO 2: BANDERITA</button>}
+                                    {currentTemplate.hasActa && <button onClick={() => setActiveSection('acta')} className={`px-6 py-3 font-bold text-sm ${activeSection === 'acta' ? 'text-gray-800 border-b-2 border-gray-800' : ''}`}>PASO 1: ACTA</button>}
+                                    {currentTemplate.hasBanderita && <button onClick={() => setActiveSection('banderita')} className={`px-6 py-3 font-bold text-sm ${activeSection === 'banderita' ? 'text-gray-800 border-b-2 border-gray-800' : ''}`}>PASO 2: BANDERITA</button>}
                                 </div>
                                 <div className="flex-1 bg-gray-50 p-4">
                                     <RichTextEditor
@@ -728,8 +728,8 @@ export default function App() {
                             <div className="lg:col-span-4 space-y-6">
 
                                 {/* 1. SELECCIÓN DE CLIENTE (OBLIGATORIO) */}
-                                <div className={`bg-white p-6 rounded-xl shadow-lg border-2 ${!certificationClient ? 'border-indigo-500 ring-4 ring-indigo-500/10' : 'border-green-100'}`}>
-                                    <h3 className={`font-bold text-lg mb-4 flex items-center gap-2 ${!certificationClient ? 'text-indigo-600' : 'text-green-700'}`}>
+                                <div className={`bg-white p-6 rounded-xl shadow-lg border-2 ${!certificationClient ? 'border-gray-800 ring-4 ring-gray-800/10' : 'border-green-100'}`}>
+                                    <h3 className={`font-bold text-lg mb-4 flex items-center gap-2 ${!certificationClient ? 'text-gray-800' : 'text-green-700'}`}>
                                         <Users size={20} />
                                         {certificationClient ? 'Cliente Asignado' : '1. Seleccionar Cliente'}
                                     </h3>
@@ -747,7 +747,7 @@ export default function App() {
                                             {clientSearchText.length > 2 && (
                                                 <button
                                                     onClick={() => handleCreateClient(clientSearchText)}
-                                                    className="w-full py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
+                                                    className="w-full py-2 bg-gray-200 hover:bg-gray-400 text-gray-900 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
                                                 >
                                                     <Plus size={16} /> Crear nuevo cliente: "{clientSearchText.toUpperCase()}"
                                                 </button>
@@ -765,7 +765,7 @@ export default function App() {
                                 {/* 2. COMPLETAR VARIABLES */}
                                 <div className={`bg-white p-6 rounded-xl shadow-lg border border-gray-200 transition-opacity ${!certificationClient ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                                     <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2 border-b pb-4">
-                                        <PenTool className="text-indigo-600" /> 2. Completar Datos ({activeSection === 'acta' ? 'Acta' : 'Banderita'})
+                                        <PenTool className="text-gray-800" /> 2. Completar Datos ({activeSection === 'acta' ? 'Acta' : 'Banderita'})
                                     </h3>
 
                                     <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
@@ -790,7 +790,7 @@ export default function App() {
                                                         type="text"
                                                         value={formData[variable] || ''}
                                                         onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
-                                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
+                                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50 transition-colors focus:bg-white"
                                                         placeholder={`...`}
                                                     />
                                                 </div>
@@ -806,7 +806,7 @@ export default function App() {
                                     {currentTemplate.hasActa && (
                                         <button
                                             onClick={() => setActiveSection('acta')}
-                                            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'acta' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                                            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'acta' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
                                         >
                                             Paso 1: Acta
                                         </button>
@@ -814,7 +814,7 @@ export default function App() {
                                     {currentTemplate.hasBanderita && (
                                         <button
                                             onClick={() => setActiveSection('banderita')}
-                                            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'banderita' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                                            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition ${activeSection === 'banderita' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
                                         >
                                             Paso 2: Banderita
                                         </button>
