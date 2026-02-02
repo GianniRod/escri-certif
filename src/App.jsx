@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     FileText, Plus, Edit3, Trash2, ArrowLeft, Save,
-    Download, PenTool, LayoutTemplate, Bold, Underline, CheckSquare
+    Download, PenTool, LayoutTemplate, Bold, Underline, CheckSquare,
+    Users, Search, Clock, ChevronRight
 } from 'lucide-react';
+
+// FIREBASE IMPORTS
+import { db } from './firebase';
+import {
+    collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot,
+    query, orderBy, where, serverTimestamp, getDocs
+} from 'firebase/firestore';
 
 // --- Utiles para Variables ---
 const extractVariables = (text) => {
     if (!text) return [];
-    // Detecta patrones {{VARIABLE}} incluso dentro de tags HTML
     const regex = /{{(.*?)}}/g;
     const matches = [...text.matchAll(regex)];
     return [...new Set(matches.map(m => m[1].trim()))];
@@ -17,18 +24,15 @@ const extractVariables = (text) => {
 const RichTextEditor = ({ content, onChange, placeholder }) => {
     const editorRef = useRef(null);
 
-    // Initial content setup
     useEffect(() => {
         if (editorRef.current && content !== editorRef.current.innerHTML) {
-            // Solo actualizar si es diferente para no perder cursor (basic implementation)
-            // En una app real usaríamos Draft.js o Slate, pero para "native feel" y copy/paste de Word:
             if (content === '' || content === '<br>') {
                 editorRef.current.innerHTML = '';
             } else if (!editorRef.current.innerText.trim() && !content) {
                 editorRef.current.innerHTML = '';
             }
         }
-    }, []);
+    }, [content]);
 
     const handleInput = () => {
         const html = editorRef.current.innerHTML;
@@ -42,7 +46,6 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
 
     return (
         <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-white">
-            {/* Toolbar */}
             <div className="flex items-center gap-2 p-2 bg-gray-50 border-b">
                 <button onMouseDown={(e) => { e.preventDefault(); execCmd('bold'); }} className="p-2 hover:bg-gray-200 rounded text-gray-700" title="Negrita">
                     <Bold size={18} />
@@ -54,7 +57,6 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
                 <span className="text-xs text-gray-500 font-medium">Arial 11pt (Automático)</span>
             </div>
 
-            {/* Editable Area */}
             <div
                 ref={editorRef}
                 contentEditable
@@ -70,7 +72,6 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
                 dangerouslySetInnerHTML={{ __html: content }}
                 placeholder={placeholder}
             />
-            {/* Instrucción de pegado */}
             <div className="px-4 py-2 bg-yellow-50 text-xs text-yellow-700 border-t flex justify-between">
                 <span>Tip: Puedes pegar contenido directamente desde Word manteniendo el formato.</span>
             </div>
@@ -78,7 +79,7 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
     );
 };
 
-// --- Componentes ---
+// --- Componentes UI ---
 
 function TemplateCard({ template, onUse, onEdit, onDelete }) {
     return (
@@ -108,43 +109,119 @@ function TemplateCard({ template, onUse, onEdit, onDelete }) {
     );
 }
 
+// --- Autocomplete Input Component ---
+const AutocompleteInput = ({ label, value, onChange, onSelectResult }) => {
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Búsqueda simple en local (idealmente sería query a Firestore si son muchos)
+    // Para simplificar, asumimos que 'onSelectResult' recibe (name, dni) etc.
+    const handleSearch = async (text) => {
+        onChange(text);
+        if (text.length > 2) {
+            // Buscar clientes
+            const q = query(
+                collection(db, "clients"),
+                where("name", ">=", text.toUpperCase()),
+                where("name", "<=", text.toUpperCase() + '\uf8ff')
+            );
+            const querySnapshot = await getDocs(q);
+            const results = [];
+            querySnapshot.forEach((doc) => {
+                results.push({ id: doc.id, ...doc.data() });
+            });
+            setSuggestions(results);
+            setShowSuggestions(true);
+        } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
+
+    return (
+        <div className="relative">
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                {label}
+            </label>
+            <input
+                type="text"
+                value={value}
+                onChange={(e) => handleSearch(e.target.value)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
+                placeholder={`Ingresar ${label.toLowerCase()}...`}
+            />
+            {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-10 w-full bg-white border rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+                    {suggestions.map(client => (
+                        <div
+                            key={client.id}
+                            className="p-3 hover:bg-indigo-50 cursor-pointer border-b last:border-0"
+                            onClick={() => onSelectResult(client)}
+                        >
+                            <p className="font-bold text-sm text-gray-800">{client.name}</p>
+                            <p className="text-xs text-gray-500">DNI: {client.dni}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 export default function App() {
     // --- ESTADOS ---
-    const [view, setView] = useState('DASHBOARD'); // DASHBOARD, EDITOR, GENERATOR
-    const [templates, setTemplates] = useState(() => {
-        const saved = localStorage.getItem('scrib_templates_v2'); // Nueva key v2
-        return saved ? JSON.parse(saved) : [{
-            id: 'demo-1',
-            title: 'Certificación de Firma (Modelo Base)',
-            description: 'Modelo estándar con Acta y Banderita.',
-            contentActa: `<b>ACTA DE CERTIFICACIÓN.</b> En la ciudad de <b>{{CIUDAD}}</b>, a los {{DIA}} días del mes de {{MES}} del año {{AÑO}}...`,
-            contentBanderita: `<b>CERTIFICO</b> que la firma que antecede ha sido puesta en mi presencia por <b>{{NOMBRE}}</b>, DNI {{DNI}}...`,
-            hasActa: true,
-            hasBanderita: true
-        }];
-    });
+    const [view, setView] = useState('DASHBOARD'); // DASHBOARD, EDITOR, GENERATOR, CLIENTS
+    const [templates, setTemplates] = useState([]);
+    const [clients, setClients] = useState([]);
 
     // Estado para edición/creación
     const [currentTemplate, setCurrentTemplate] = useState(null);
-    const [activeSection, setActiveSection] = useState('acta'); // 'acta' | 'banderita'
+    const [activeSection, setActiveSection] = useState('acta');
 
     // Estado para generación
     const [formData, setFormData] = useState({});
 
-    // Persistencia
+    // Estado para Clientes (Detalle)
+    const [selectedClient, setSelectedClient] = useState(null);
+    const [clientHistory, setClientHistory] = useState([]);
+
+    // --- FIRESTORE SUBSCRIPTIONS ---
     useEffect(() => {
-        localStorage.setItem('scrib_templates_v2', JSON.stringify(templates));
-    }, [templates]);
+        // Templates Subscription
+        const qTemplates = query(collection(db, "templates")); // Podríamos ordenar por fecha
+        const unsubscribeTemplates = onSnapshot(qTemplates, (querySnapshot) => {
+            const temps = [];
+            querySnapshot.forEach((doc) => {
+                temps.push({ id: doc.id, ...doc.data() });
+            });
+            setTemplates(temps);
+        });
 
-    // --- ACCIONES ---
+        // Clients Subscription (Caution: if many clients, use pagination. For now ok)
+        const qClients = query(collection(db, "clients"), orderBy("name"));
+        const unsubscribeClients = onSnapshot(qClients, (querySnapshot) => {
+            const cls = [];
+            querySnapshot.forEach((doc) => {
+                cls.push({ id: doc.id, ...doc.data() });
+            });
+            setClients(cls);
+        });
 
+        return () => {
+            unsubscribeTemplates();
+            unsubscribeClients();
+        };
+    }, []);
+
+    // --- ACCIONES PLANTILLAS ---
     const handleCreateNew = () => {
         setCurrentTemplate({
-            id: crypto.randomUUID(),
             title: 'Nueva Plantilla',
             description: '',
-            contentActa: 'Contenido del Acta (Paso 1)...',
-            contentBanderita: 'Contenido de la Certificación (Paso 2)...',
+            contentActa: '',
+            contentBanderita: '',
             hasActa: true,
             hasBanderita: true
         });
@@ -153,79 +230,109 @@ export default function App() {
     };
 
     const handleEdit = (template) => {
-        setCurrentTemplate({ ...template }); // Shallow copy es suficiente por ahora
-        setActiveSection('acta');
+        setCurrentTemplate({ ...template });
+        setActiveSection(template.hasActa ? 'acta' : 'banderita');
         setView('EDITOR');
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (confirm('¿Estás seguro de eliminar esta plantilla?')) {
-            setTemplates(prev => prev.filter(t => t.id !== id));
+            await deleteDoc(doc(db, "templates", id));
         }
     };
 
-    const handleSaveTemplate = () => {
-        setTemplates(prev => {
-            const exists = prev.find(t => t.id === currentTemplate.id);
-            if (exists) {
-                return prev.map(t => t.id === currentTemplate.id ? currentTemplate : t);
-            }
-            return [...prev, currentTemplate];
-        });
+    const handleSaveTemplate = async () => {
+        if (currentTemplate.id) {
+            // Update
+            const ref = doc(db, "templates", currentTemplate.id);
+            await updateDoc(ref, { ...currentTemplate });
+        } else {
+            // Create
+            await addDoc(collection(db, "templates"), { ...currentTemplate });
+        }
         setView('DASHBOARD');
     };
 
+    // --- ACCIONES GENERADOR / CLIENTES ---
     const handleUseTemplate = (template) => {
         setCurrentTemplate(template);
-        // Extraer variables de ambas secciones si están habilitadas
         let vars = [];
         if (template.hasActa) vars = [...vars, ...extractVariables(template.contentActa)];
         if (template.hasBanderita) vars = [...vars, ...extractVariables(template.contentBanderita)];
-
-        // Quitar duplicados
         vars = [...new Set(vars)];
 
         const initialData = {};
         vars.forEach(v => initialData[v] = '');
-        setFormData(initialData);
 
-        // Default tab
+        // Auto-fill DATE
+        if (vars.includes('FECHA')) initialData['FECHA'] = new Date().toLocaleDateString();
+
+        setFormData(initialData);
         setActiveSection(template.hasActa ? 'acta' : 'banderita');
         setView('GENERATOR');
     };
 
-    const insertVariable = (varName) => {
-        const cleanName = varName.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
-        const tag = `{{${cleanName}}}`;
-
-        // Insertar en la sección activa
-        const key = activeSection === 'acta' ? 'contentActa' : 'contentBanderita';
-
-        // Para simplificar en RichText, añadimos al final.
-        // En una implementación perfecta usaríamos Range/Selection API.
-        setCurrentTemplate(prev => ({
-            ...prev,
-            [key]: prev[key] + ` <span style="background-color: #e0e7ff; padding: 2px 4px; border-radius: 4px; font-weight: bold;">${tag}</span> `
-        }));
+    const handleAutocompleteSelect = (client, fieldName) => {
+        if (fieldName.includes('NOMBRE') || fieldName.includes('CLIENTE')) {
+            // Auto completar otros campos si existen
+            setFormData(prev => ({
+                ...prev,
+                [fieldName]: client.name,
+                ['DNI']: client.dni || prev['DNI'], // Asume que el campo se llama DNI
+                ['DOMICILIO']: client.address || prev['DOMICILIO']
+            }));
+        }
     };
 
-    // --- Exportación a Word ---
+    const saveAndDownload = async () => {
+        // 1. Identificar Cliente (Por Nombre o DNI)
+        // Buscamos inputs comunes
+        const nameVal = formData['NOMBRE'] || formData['CLIENTE'] || formData['COMPARECIENTE'];
+        const dniVal = formData['DNI'] || formData['DOCUMENTO'];
+
+        let clientId = null;
+        let clientName = nameVal || 'Desconocido';
+
+        if (nameVal) {
+            // Buscar si existe
+            const q = query(collection(db, "clients"), where("name", "==", nameVal));
+            const snap = await getDocs(q);
+
+            if (!snap.empty) {
+                clientId = snap.docs[0].id;
+            } else {
+                // Crear nuevo cliente
+                const docRef = await addDoc(collection(db, "clients"), {
+                    name: nameVal,
+                    dni: dniVal || '',
+                    createdAt: serverTimestamp()
+                });
+                clientId = docRef.id;
+            }
+
+            // 2. Guardar Certificación
+            await addDoc(collection(db, "certifications"), {
+                clientId,
+                clientName,
+                templateId: currentTemplate.id || 'temp',
+                templateTitle: currentTemplate.title,
+                templateData: formData,
+                timestamp: serverTimestamp()
+            });
+        }
+
+        exportToWord();
+    };
+
     const exportToWord = () => {
         const content = document.getElementById('document-preview').innerHTML;
-        // Agregamos estilos específicos para que Word respete Arial 11
         const header = `
             <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-            <head>
-                <meta charset='utf-8'>
-                <title>Documento</title>
-                <style>
-                    body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 2.2; text-align: justify; }
-                </style>
-            </head>
-            <body>`;
+            <head><meta charset='utf-8'><title>Documento</title>
+            <style>body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 2.2; text-align: justify; }</style>
+            </head><body>`;
         const footer = "</body></html>";
         const sourceHTML = header + content + footer;
-
         const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
         const fileDownload = document.createElement("a");
         document.body.appendChild(fileDownload);
@@ -235,11 +342,20 @@ export default function App() {
         document.body.removeChild(fileDownload);
     };
 
-    // --- RENDER ---
+    // --- MODULO CLIENTES ---
+    const loadClientHistory = async (client) => {
+        setSelectedClient(client);
+        const q = query(collection(db, "certifications"), where("clientId", "==", client.id), orderBy("timestamp", "desc"));
+        const snap = await getDocs(q);
+        const hist = [];
+        snap.forEach(doc => hist.push({ id: doc.id, ...doc.data() }));
+        setClientHistory(hist);
+    };
 
+    // --- RENDER ---
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
-            {/* Header Global */}
+            {/* Header */}
             <header className="bg-indigo-900 text-white p-4 shadow-lg sticky top-0 z-20">
                 <div className="max-w-6xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('DASHBOARD')}>
@@ -251,6 +367,21 @@ export default function App() {
                             <p className="text-xs text-indigo-300">Gestor de Documentos Notariales</p>
                         </div>
                     </div>
+
+                    <nav className="flex gap-4">
+                        <button
+                            onClick={() => setView('DASHBOARD')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${view === 'DASHBOARD' ? 'bg-indigo-800 text-white' : 'text-indigo-200 hover:text-white'}`}
+                        >
+                            Plantillas
+                        </button>
+                        <button
+                            onClick={() => setView('CLIENTS')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${view === 'CLIENTS' ? 'bg-indigo-800 text-white' : 'text-indigo-200 hover:text-white'}`}
+                        >
+                            Clientes
+                        </button>
+                    </nav>
                 </div>
             </header>
 
@@ -262,33 +393,81 @@ export default function App() {
                         <div className="flex justify-between items-center">
                             <div>
                                 <h2 className="text-3xl font-bold text-gray-800">Mis Plantillas</h2>
-                                <p className="text-gray-500 mt-1">Selecciona una plantilla para redactar o crea una nueva.</p>
+                                <p className="text-gray-500 mt-1">Biblioteca de modelos notariales.</p>
                             </div>
-                            <button
-                                onClick={handleCreateNew}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg shadow-indigo-200 flex items-center gap-2 font-semibold transition-all hover:scale-105"
-                            >
+                            <button onClick={handleCreateNew} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold">
                                 <Plus size={20} /> Nueva Plantilla
                             </button>
                         </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {templates.map(t => (
-                                <TemplateCard
-                                    key={t.id}
-                                    template={t}
-                                    onUse={handleUseTemplate}
-                                    onEdit={handleEdit}
-                                    onDelete={handleDelete}
-                                />
+                                <TemplateCard key={t.id} template={t} onUse={handleUseTemplate} onEdit={handleEdit} onDelete={handleDelete} />
                             ))}
+                        </div>
+                    </div>
+                )}
 
-                            {/* Card para crear nueva (Empty State visual) */}
-                            {templates.length === 0 && (
-                                <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50/50">
-                                    <FileText className="mx-auto text-gray-300 mb-4" size={48} />
-                                    <p className="text-gray-500 text-lg">No tienes plantillas creadas.</p>
-                                    <button onClick={handleCreateNew} className="text-indigo-600 font-bold hover:underline mt-2">Crear la primera</button>
+                {/* VISTA: CLIENTES */}
+                {view === 'CLIENTS' && (
+                    <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-3 gap-8 h-[calc(100vh-140px)]">
+                        {/* Lista Clientes */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 overflow-y-auto">
+                            <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800"><Users /> Clientes Clientes Registrados</h2>
+                            <div className="relative mb-4">
+                                <Search size={18} className="absolute left-3 top-3 text-gray-400" />
+                                <input type="text" placeholder="Buscar por nombre o DNI..." className="w-full pl-10 p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 ring-indigo-500" />
+                            </div>
+                            <div className="space-y-2">
+                                {clients.map(client => (
+                                    <div
+                                        key={client.id}
+                                        onClick={() => loadClientHistory(client)}
+                                        className={`p-3 rounded-lg cursor-pointer border hover:border-indigo-300 transition ${selectedClient?.id === client.id ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-gray-100'}`}
+                                    >
+                                        <h4 className="font-bold text-gray-800">{client.name}</h4>
+                                        <p className="text-xs text-gray-500">DNI: {client.dni || 'Sin datos'}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Detalle Historial */}
+                        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-y-auto">
+                            {selectedClient ? (
+                                <div>
+                                    <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-gray-900">{selectedClient.name}</h2>
+                                            <p className="text-gray-500">Historial de Certificaciones</p>
+                                        </div>
+                                        <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-bold">
+                                            {clientHistory.length} Documentos
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {clientHistory.map(doc => (
+                                            <div key={doc.id} className="p-4 rounded-xl border border-gray-100 hover:shadow-md transition bg-gray-50">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-indigo-700 text-lg mb-1">{doc.templateTitle}</h4>
+                                                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                            <Clock size={12} />
+                                                            {doc.timestamp ? new Date(doc.timestamp.seconds * 1000).toLocaleString() : 'Reciente'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {clientHistory.length === 0 && (
+                                            <p className="text-gray-400 italic text-center py-10">Este cliente aún no tiene documentos generados.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                                    <Users size={64} className="mb-4 opacity-20" />
+                                    <p>Selecciona un cliente para ver su historial.</p>
                                 </div>
                             )}
                         </div>
@@ -298,6 +477,7 @@ export default function App() {
                 {/* VISTA: EDITOR */}
                 {view === 'EDITOR' && (
                     <div className="animate-fade-in h-[calc(100vh-140px)] flex flex-col">
+                        {/* ... keep existing UI for editor ... */}
                         <div className="flex items-center gap-4 mb-6">
                             <button onClick={() => setView('DASHBOARD')} className="p-2 hover:bg-gray-200 rounded-full transition"><ArrowLeft /></button>
                             <h2 className="text-2xl font-bold text-gray-800 flex-1">
@@ -307,102 +487,42 @@ export default function App() {
                                 <Save size={18} /> Guardar
                             </button>
                         </div>
-
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-                            {/* Panel Izquierdo: Configuración */}
                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6 overflow-y-auto">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Título de la Plantilla</label>
-                                    <input
-                                        type="text"
-                                        value={currentTemplate.title}
-                                        onChange={(e) => setCurrentTemplate({ ...currentTemplate, title: e.target.value })}
-                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-lg"
-                                        placeholder="Ej: Certificación de Firmas"
-                                    />
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Título</label>
+                                    <input type="text" value={currentTemplate.title} onChange={(e) => setCurrentTemplate({ ...currentTemplate, title: e.target.value })} className="w-full p-3 border rounded-lg font-bold" />
                                 </div>
-
-                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                    <h4 className="font-bold text-gray-700 mb-3 text-sm uppercase">Secciones Habilitadas</h4>
-                                    <div className="space-y-2">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={currentTemplate.hasActa}
-                                                onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasActa: e.target.checked })}
-                                                className="w-4 h-4 text-indigo-600 rounded"
-                                            />
-                                            <span className="text-sm font-medium">Paso 1: Acta Notarial</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={currentTemplate.hasBanderita}
-                                                onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasBanderita: e.target.checked })}
-                                                className="w-4 h-4 text-indigo-600 rounded"
-                                            />
-                                            <span className="text-sm font-medium">Paso 2: Certificación (Banderita)</span>
-                                        </label>
-                                    </div>
+                                <div className="bg-gray-50 p-4 rounded-lg border">
+                                    <h4 className="font-bold text-sm uppercase mb-2">Secciones</h4>
+                                    <label className="flex items-center gap-2"><input type="checkbox" checked={currentTemplate.hasActa} onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasActa: e.target.checked })} /> Acta</label>
+                                    <label className="flex items-center gap-2"><input type="checkbox" checked={currentTemplate.hasBanderita} onChange={(e) => setCurrentTemplate({ ...currentTemplate, hasBanderita: e.target.checked })} /> Banderita</label>
                                 </div>
-
                                 <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                                    <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Plus size={16} /> Variables Dinámicas</h4>
-                                    <p className="text-xs text-indigo-700 mb-3">Agrega campos que rellenarás al momento de usar la plantilla.</p>
+                                    <h4 className="font-bold text-indigo-900 mb-2">+ Variable</h4>
                                     <div className="flex gap-2">
-                                        <input id="newVarInput" type="text" className="flex-1 p-2 border rounded text-sm" placeholder="Ej: CLIENTE" />
-                                        <button
-                                            onClick={() => {
-                                                const input = document.getElementById('newVarInput');
-                                                if (input.value) {
-                                                    insertVariable(input.value);
-                                                    input.value = '';
-                                                }
-                                            }}
-                                            className="bg-indigo-600 text-white px-3 py-2 rounded text-sm font-bold hover:bg-indigo-700"
-                                        >
-                                            Agregar
-                                        </button>
+                                        <input id="newVarInput" className="flex-1 p-2 border rounded text-sm" />
+                                        <button onClick={() => {
+                                            const v = document.getElementById('newVarInput').value;
+                                            if (v) {
+                                                const key = activeSection === 'acta' ? 'contentActa' : 'contentBanderita';
+                                                setCurrentTemplate({ ...currentTemplate, [key]: currentTemplate[key] + ` {{${v.toUpperCase()}}} ` });
+                                                document.getElementById('newVarInput').value = '';
+                                            }
+                                        }} className="bg-indigo-600 text-white px-3 text-sm font-bold rounded">Add</button>
                                     </div>
-                                    <p className="text-xs text-indigo-700 mt-2">La variable se insertará en la sección activa.</p>
                                 </div>
                             </div>
-
-                            {/* Panel Derecho: Editor de Contenido con Tabs */}
-                            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
-                                {/* Tabs */}
+                            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border flex flex-col">
                                 <div className="flex border-b">
-                                    {currentTemplate.hasActa && (
-                                        <button
-                                            onClick={() => setActiveSection('acta')}
-                                            className={`px-6 py-3 font-bold text-sm transition-colors ${activeSection === 'acta' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
-                                        >
-                                            PASO 1: ACTA
-                                        </button>
-                                    )}
-                                    {currentTemplate.hasBanderita && (
-                                        <button
-                                            onClick={() => setActiveSection('banderita')}
-                                            className={`px-6 py-3 font-bold text-sm transition-colors ${activeSection === 'banderita' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
-                                        >
-                                            PASO 2: BANDERITA
-                                        </button>
-                                    )}
+                                    {currentTemplate.hasActa && <button onClick={() => setActiveSection('acta')} className={`px-6 py-3 font-bold text-sm ${activeSection === 'acta' ? 'text-indigo-600 border-b-2 border-indigo-600' : ''}`}>PASO 1: ACTA</button>}
+                                    {currentTemplate.hasBanderita && <button onClick={() => setActiveSection('banderita')} className={`px-6 py-3 font-bold text-sm ${activeSection === 'banderita' ? 'text-indigo-600 border-b-2 border-indigo-600' : ''}`}>PASO 2: BANDERITA</button>}
                                 </div>
-
-                                {/* Rich Text Editor */}
                                 <div className="flex-1 bg-gray-50 p-4">
                                     <RichTextEditor
-                                        key={activeSection} // Force remount on tab switch for simplicity
+                                        key={activeSection}
                                         content={activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita}
-                                        onChange={(newHtml) => {
-                                            if (activeSection === 'acta') {
-                                                setCurrentTemplate({ ...currentTemplate, contentActa: newHtml });
-                                            } else {
-                                                setCurrentTemplate({ ...currentTemplate, contentBanderita: newHtml });
-                                            }
-                                        }}
-                                        placeholder={`Escribe el contenido para ${activeSection === 'acta' ? 'el Acta' : 'la Certificación'}...`}
+                                        onChange={(html) => setCurrentTemplate({ ...currentTemplate, [activeSection === 'acta' ? 'contentActa' : 'contentBanderita']: html })}
                                     />
                                 </div>
                             </div>
@@ -410,7 +530,7 @@ export default function App() {
                     </div>
                 )}
 
-                {/* VISTA: GENERADOR (USAR PLANTILLA) */}
+                {/* VISTA: GENERADOR */}
                 {view === 'GENERATOR' && (
                     <div className="animate-fade-in">
                         <div className="flex items-center gap-4 mb-6">
@@ -418,8 +538,8 @@ export default function App() {
                             <h2 className="text-2xl font-bold text-gray-800 flex-1">
                                 Nueva: {currentTemplate.title}
                             </h2>
-                            <button onClick={exportToWord} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
-                                <Download size={18} /> Descargar Word ({activeSection === 'acta' ? 'Paso 1' : 'Paso 2'})
+                            <button onClick={saveAndDownload} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md">
+                                <Download size={18} /> Guardar y Descargar Word ({activeSection === 'acta' ? 'Paso 1' : 'Paso 2'})
                             </button>
                         </div>
 
@@ -435,16 +555,27 @@ export default function App() {
                                     <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                                         {Object.keys(formData).map(variable => (
                                             <div key={variable}>
-                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                                                    {variable}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={formData[variable] || ''}
-                                                    onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
-                                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
-                                                    placeholder={`Ingresar ${variable.toLowerCase()}...`}
-                                                />
+                                                {(variable.includes('NOMBRE') || variable.includes('CLIENTE')) ? (
+                                                    <AutocompleteInput
+                                                        label={variable}
+                                                        value={formData[variable] || ''}
+                                                        onChange={(val) => setFormData({ ...formData, [variable]: val })}
+                                                        onSelectResult={(client) => handleAutocompleteSelect(client, variable)}
+                                                    />
+                                                ) : (
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                            {variable}
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={formData[variable] || ''}
+                                                            onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
+                                                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
+                                                            placeholder={`Ingresar ${variable.toLowerCase()}...`}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -500,7 +631,6 @@ export default function App() {
                         </div>
                     </div>
                 )}
-
             </main>
         </div>
     );
