@@ -382,6 +382,17 @@ export default function App() {
         setView('GENERATOR');
     };
 
+    const handleDeleteCertification = async (id) => {
+        if (confirm("¿Estás seguro de eliminar esta certificación? Esta acción no se puede deshacer.")) {
+            try {
+                await deleteDoc(doc(db, "certifications", id));
+            } catch (error) {
+                console.error("Error deleting certification:", error);
+                alert("Hubo un error al eliminar la certificación.");
+            }
+        }
+    };
+
     const exportToWord = () => {
         const content = document.getElementById('document-preview').innerHTML;
         const header = `
@@ -539,13 +550,20 @@ export default function App() {
                                                     {cert.status === 'completed' ? 'Finalizado' : 'Borrador'}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-right">
+                                            <td className="p-4 text-right flex justify-end gap-2">
                                                 <button
                                                     onClick={() => handleResumeCertification(cert)}
-                                                    className="text-gray-400 hover:text-indigo-600 tooltip"
+                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-indigo-600 tooltip transition-colors"
                                                     title="Editar / Continuar"
                                                 >
                                                     <Edit3 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteCertification(cert.id)}
+                                                    className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 tooltip transition-colors"
+                                                    title="Eliminar Certificación"
+                                                >
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </td>
                                         </tr>
