@@ -286,7 +286,7 @@ export default function App() {
             unsubscribeClients();
             unsubscribeCertifications();
         };
-    }, []);
+    }, [user]);
 
     // --- AUTO-SAVE EFFECT ---
     useEffect(() => {
