@@ -62,7 +62,8 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
                 style={{
                     fontFamily: 'Arial, sans-serif',
                     fontSize: '11pt',
-                    lineHeight: '1.5',
+                    lineHeight: '2.2',
+                    textAlign: 'justify',
                     minHeight: '200px'
                 }}
                 onInput={handleInput}
@@ -476,7 +477,7 @@ export default function App() {
                                     <div
                                         id="document-preview"
                                         className="bg-white shadow-2xl p-[2.5cm] w-[21cm] min-h-[29.7cm] text-black leading-relaxed whitespace-pre-wrap outline-none"
-                                        style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt' }}
+                                        style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt', lineHeight: '2.2', textAlign: 'justify' }}
                                     >
                                         {/* Renderizado de Reemplazo */}
                                         {(() => {
