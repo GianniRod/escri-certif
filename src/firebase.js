@@ -11,5 +11,8 @@ const firebaseConfig = {
     measurementId: "G-RL2NSMVX2Z"
 };
 
+import { getAuth } from "firebase/auth";
+
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
