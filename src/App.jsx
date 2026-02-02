@@ -8,6 +8,7 @@ import {
 // FIREBASE IMPORTS
 import { db } from './firebase';
 import {
+    collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot,
     query, orderBy, where, serverTimestamp, getDocs
 } from 'firebase/firestore';
 import { auth } from './firebase';
