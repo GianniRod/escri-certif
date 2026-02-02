@@ -185,8 +185,10 @@ export default function App() {
     // Estado para Generación (Certificación)
     const [formData, setFormData] = useState({});
     const [certificationClient, setCertificationClient] = useState(null); // Objeto cliente seleccionado
+
     const [clientSearchText, setClientSearchText] = useState(''); // Estado para el buscador de clientes
     const [certificationId, setCertificationId] = useState(null); // ID del borrador activo
+    const [certificationTitle, setCertificationTitle] = useState(''); // Nuevo: Título de la certificación
     const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved
 
     // Estado para Historial Clientes
@@ -301,6 +303,11 @@ export default function App() {
                     clientName: certificationClient.name,
                     templateId: currentTemplate.id,
                     templateTitle: currentTemplate.title,
+                    clientId: certificationClient.id,
+                    clientName: certificationClient.name,
+                    templateId: currentTemplate.id,
+                    templateTitle: currentTemplate.title,
+                    certificationTitle: certificationTitle || currentTemplate.title, // Guardar título personalizado o fallback
                     templateData: formData,
                     status: 'draft',
                     timestamp: serverTimestamp() // Updates timestamp on every save? Maybe creating field 'lastModified' is better
@@ -324,7 +331,7 @@ export default function App() {
         }, 2000); // 2 seconds debounce
 
         return () => clearTimeout(timer);
-    }, [formData, certificationClient, certificationId]); // Auto-save triggered by data change and ID updates
+    }, [formData, certificationClient, certificationId, certificationTitle]); // Auto-save triggered by data change and ID updates
 
     // --- ACCIONES PLANTILLAS ---
     const handleCreateNewTemplate = () => {
@@ -381,6 +388,7 @@ export default function App() {
         if (vars.includes('FECHA')) initialData['FECHA'] = new Date().toLocaleDateString();
 
         setFormData(initialData);
+        setCertificationTitle(template.title); // Default title is template title
 
         setActiveSection(template.hasActa ? 'acta' : 'banderita');
         setView('GENERATOR');
@@ -409,6 +417,7 @@ export default function App() {
         if (certificationId) {
             await updateDoc(doc(db, "certifications", certificationId), {
                 status: 'completed',
+                certificationTitle: certificationTitle,
                 templateData: formData // Ensure latest data
             });
         } else {
@@ -418,6 +427,7 @@ export default function App() {
                 clientName: certificationClient.name,
                 templateId: currentTemplate.id,
                 templateTitle: currentTemplate.title,
+                certificationTitle: certificationTitle || currentTemplate.title,
                 templateData: formData,
                 status: 'completed',
                 timestamp: serverTimestamp()
@@ -445,6 +455,7 @@ export default function App() {
         setCertificationClient(client);
         setFormData(cert.templateData || {});
         setCertificationId(cert.id);
+        setCertificationTitle(cert.certificationTitle || cert.templateTitle || template.title);
         setSaveStatus('saved');
         setClientSearchText('');
 
@@ -667,7 +678,7 @@ export default function App() {
                                                 <span className="text-xs text-gray-400">{cert.timestamp ? new Date(cert.timestamp.seconds * 1000).toLocaleTimeString() : ''}</span>
                                             </td>
                                             <td className="p-4 font-bold text-gray-800">{cert.clientName}</td>
-                                            <td className="p-4 text-gray-800 font-medium">{cert.templateTitle}</td>
+                                            <td className="p-4 text-gray-800 font-medium">{cert.certificationTitle || cert.templateTitle}</td>
                                             <td className="p-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${cert.status === 'completed' ? 'bg-green-100 text-green-700' :
                                                     cert.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
@@ -741,7 +752,7 @@ export default function App() {
                                         {certifications.filter(c => c.clientId === selectedClientHistory.id).map(doc => (
                                             <div key={doc.id} className="p-4 rounded-xl border border-gray-100 hover:shadow-md transition bg-gray-50 flex justify-between items-center">
                                                 <div>
-                                                    <h4 className="font-bold text-gray-900 mb-1">{doc.templateTitle}</h4>
+                                                    <h4 className="font-bold text-gray-900 mb-1">{doc.certificationTitle || doc.templateTitle}</h4>
                                                     <p className="text-xs text-gray-500 flex items-center gap-1">
                                                         <Clock size={12} /> {doc.timestamp ? new Date(doc.timestamp.seconds * 1000).toLocaleDateString() : ''}
                                                     </p>
@@ -823,18 +834,23 @@ export default function App() {
                     <div className="animate-fade-in">
                         <div className="flex items-center gap-4 mb-6">
                             <button onClick={() => setView('DASHBOARD')} className="p-2 hover:bg-gray-200 rounded-full transition"><ArrowLeft /></button>
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-800">
-                                    {currentTemplate.title}
-                                </h2>
-                                <p className="text-sm text-gray-500 flex items-center gap-2">
+                            <div className="flex-1">
+                                <label className="text-xs text-gray-500 font-bold uppercase">Título de la Certificación</label>
+                                <input
+                                    type="text"
+                                    value={certificationTitle}
+                                    onChange={(e) => setCertificationTitle(e.target.value)}
+                                    className="w-full text-2xl font-bold text-gray-800 bg-transparent border-b border-dashed border-gray-300 focus:border-gray-800 outline-none placeholder-gray-300"
+                                    placeholder="Nombre del documento..."
+                                />
+                                <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
                                     {saveStatus === 'saving' && <span className="text-yellow-600 flex items-center gap-1"><Clock size={12} className="animate-spin" /> Guardando...</span>}
                                     {saveStatus === 'saved' && <span className="text-green-600 flex items-center gap-1"><CheckSquare size={12} /> Guardado como borrador</span>}
                                     {saveStatus === 'error' && <span className="text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Error al guardar</span>}
                                 </p>
                             </div>
 
-                            <div className="flex-1"></div>
+                            <div className="w-4"></div>
 
                             <button
                                 onClick={handleDownload}
