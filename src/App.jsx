@@ -742,25 +742,37 @@ export default function App() {
                                 {/* 2. COMPLETAR VARIABLES */}
                                 <div className={`bg-white p-6 rounded-xl shadow-lg border border-gray-200 transition-opacity ${!certificationClient ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                                     <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2 border-b pb-4">
-                                        <PenTool className="text-indigo-600" /> 2. Completar Datos
+                                        <PenTool className="text-indigo-600" /> 2. Completar Datos ({activeSection === 'acta' ? 'Acta' : 'Banderita'})
                                     </h3>
 
                                     <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
-                                        {Object.keys(formData).map(variable => (
-                                            <div key={variable}>
-                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                                                    {variable}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={formData[variable] || ''}
-                                                    onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
-                                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
-                                                    placeholder={`...`}
-                                                />
-                                            </div>
-                                        ))}
-                                        {Object.keys(formData).length === 0 && <p className="text-gray-400 italic text-sm">Esta plantilla no tiene variables adicionales.</p>}
+                                        {(() => {
+                                            // Extract vars for current section ONLY
+                                            const sectionContent = activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita;
+                                            const sectionVars = extractVariables(sectionContent);
+
+                                            // Always include FECHA if present in logic, but here relying on text content
+                                            // If no vars found for this section, show message
+
+                                            if (sectionVars.length === 0) {
+                                                return <p className="text-gray-400 italic text-sm">Este paso no tiene variables para completar.</p>;
+                                            }
+
+                                            return sectionVars.map(variable => (
+                                                <div key={variable}>
+                                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                        {variable}
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={formData[variable] || ''}
+                                                        onChange={(e) => setFormData({ ...formData, [variable]: e.target.value })}
+                                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 transition-colors focus:bg-white"
+                                                        placeholder={`...`}
+                                                    />
+                                                </div>
+                                            ));
+                                        })()}
                                     </div>
                                 </div>
                             </div>
