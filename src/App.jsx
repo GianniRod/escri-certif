@@ -218,7 +218,7 @@ export default function App() {
                 <meta charset='utf-8'>
                 <title>Documento</title>
                 <style>
-                    body { font-family: 'Arial', sans-serif; font-size: 11pt; }
+                    body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 2.2; text-align: justify; }
                 </style>
             </head>
             <body>`;
