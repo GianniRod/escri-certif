@@ -8,9 +8,10 @@ import {
 // FIREBASE IMPORTS
 import { db } from './firebase';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot,
     query, orderBy, where, serverTimestamp, getDocs
 } from 'firebase/firestore';
+import { auth } from './firebase';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 
 // --- Utiles para Variables ---
 const extractVariables = (text) => {
@@ -190,8 +191,78 @@ export default function App() {
     // Estado para Historial Clientes
     const [selectedClientHistory, setSelectedClientHistory] = useState(null); // Cliente seleccionado para ver historial
 
-    // --- FIRESTORE SUBSCRIPTIONS ---
+    // --- AUTENTICACIÓN ---
+    const [user, setUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [loginUsername, setLoginUsername] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [loginError, setLoginError] = useState('');
+    const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos
+    const idleTimerRef = useRef(null);
+
+    // --- AUTH EFFECTS ---
     useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+            setAuthLoading(false);
+            if (currentUser) {
+                resetIdleTimer();
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // Idle Timer Logic
+    const resetIdleTimer = () => {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = setTimeout(() => {
+            handleLogout();
+            alert("Su sesión ha expirado por inactividad (15 minutos). Por favor inicie sesión nuevamente.");
+        }, IDLE_TIMEOUT_MS);
+    };
+
+    useEffect(() => {
+        if (!user) return;
+
+        const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+        const handleActivity = () => resetIdleTimer();
+
+        events.forEach(event => window.addEventListener(event, handleActivity));
+
+        return () => {
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+            events.forEach(event => window.removeEventListener(event, handleActivity));
+        };
+    }, [user]);
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoginError('');
+        try {
+            // Append pseudo-domain
+            const email = `${loginUsername}@scrib-admin.local`;
+            await signInWithEmailAndPassword(auth, email, loginPassword);
+            // resetIdleTimer handled by effect
+        } catch (error) {
+            console.error("Login Error:", error);
+            setLoginError('Usuario o contraseña incorrectos.');
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            setLoginUsername('');
+            setLoginPassword('');
+        } catch (error) {
+            console.error("Logout Error:", error);
+        }
+    };
+
+    // --- FIRESTORE SUBSCRIPTIONS (Wrapped in user check) ---
+    useEffect(() => {
+        if (!user) return; // Only subscribe if logged in
+
         const unsubscribeTemplates = onSnapshot(query(collection(db, "templates")), (snap) => {
             const temps = [];
             snap.forEach(doc => temps.push({ id: doc.id, ...doc.data() }));
@@ -446,6 +517,52 @@ export default function App() {
     };
 
     // --- RENDER ---
+    if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-500">Cargando...</p></div>;
+
+    if (!user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#fff6dc] p-4">
+                <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
+                    <div className="flex justify-center mb-6">
+                        <img src="https://i.postimg.cc/mZyWsFf3/Logo-SBV-Retina.png" alt="Logo" className="h-20 w-auto" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Iniciar Sesión</h2>
+                    <p className="text-center text-gray-500 mb-8 text-sm">Acceso restringido al personal autorizado.</p>
+
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Usuario</label>
+                            <input
+                                type="text"
+                                value={loginUsername}
+                                onChange={(e) => setLoginUsername(e.target.value)}
+                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none"
+                                placeholder="Ingrese su usuario"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Contraseña</label>
+                            <input
+                                type="password"
+                                value={loginPassword}
+                                onChange={(e) => setLoginPassword(e.target.value)}
+                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none"
+                                placeholder="••••••••"
+                                required
+                            />
+                        </div>
+                        {loginError && <p className="text-red-500 text-sm font-bold text-center">{loginError}</p>}
+
+                        <button type="submit" className="w-full py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-black transition shadow-lg">
+                            INGRESAR
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
             {/* Header */}
@@ -482,6 +599,12 @@ export default function App() {
                             <Users size={16} /> Clientes
                         </button>
                     </nav>
+
+                    <button onClick={handleLogout} className="ml-4 p-2 text-gray-500 hover:text-red-600 tooltip" title="Cerrar Sesión">
+                        <div className="bg-white/50 p-2 rounded-full hover:bg-red-50 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        </div>
+                    </button>
                 </div>
             </header>
 
