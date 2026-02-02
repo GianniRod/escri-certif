@@ -351,6 +351,33 @@ export default function App() {
         exportToWord();
     };
 
+    const handleResumeCertification = (cert) => {
+        const template = templates.find(t => t.id === cert.templateId);
+        if (!template) {
+            alert("La plantilla original ha sido eliminada. No se puede editar.");
+            return;
+        }
+
+        // Recuperar cliente completo si es posible, sino usar datos mínimos guardados
+        const client = clients.find(c => c.id === cert.clientId) || {
+            id: cert.clientId,
+            name: cert.clientName,
+            dni: ''
+        };
+
+        setCurrentTemplate(template);
+        setCertificationClient(client);
+        setFormData(cert.templateData || {});
+        setCertificationId(cert.id);
+        setSaveStatus('saved');
+        setClientSearchText('');
+
+        // Determinar vista inicial
+        setActiveSection(template.hasActa ? 'acta' : 'banderita');
+
+        setView('GENERATOR');
+    };
+
     const exportToWord = () => {
         const content = document.getElementById('document-preview').innerHTML;
         const header = `
@@ -509,8 +536,13 @@ export default function App() {
                                                 </span>
                                             </td>
                                             <td className="p-4 text-right">
-                                                {/* Logic needed to resume/view specific certification. For now just placeholder */}
-                                                <button className="text-gray-400 hover:text-indigo-600"><Edit3 size={16} /></button>
+                                                <button
+                                                    onClick={() => handleResumeCertification(cert)}
+                                                    className="text-gray-400 hover:text-indigo-600 tooltip"
+                                                    title="Editar / Continuar"
+                                                >
+                                                    <Edit3 size={16} />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
