@@ -499,9 +499,32 @@ export default function App() {
         const content = document.getElementById('document-preview').innerHTML;
         const header = `
             <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-            <head><meta charset='utf-8'><title>Documento</title>
-            <style>body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 2.2; text-align: justify; }</style>
-            </head><body>`;
+            <head>
+                <meta charset='utf-8'>
+                <title>Documento</title>
+                <!--[if gte mso 9]>
+                <xml>
+                    <w:WordDocument>
+                        <w:View>Print</w:View>
+                        <w:Zoom>100</w:Zoom>
+                        <w:DoNotOptimizeForBrowser/>
+                    </w:WordDocument>
+                </xml>
+                <![endif]-->
+                <style>
+                    @page { size: A4; margin: 2.5cm; }
+                    body, p, div, span, td, th, li, a { 
+                        font-family: Arial, Helvetica, sans-serif !important; 
+                        font-size: 11pt !important; 
+                        line-height: 2.2; 
+                        text-align: justify;
+                        mso-font-charset: 0;
+                    }
+                    body { margin: 0; padding: 0; }
+                    * { font-family: Arial, Helvetica, sans-serif !important; }
+                </style>
+            </head>
+            <body style="font-family: Arial, Helvetica, sans-serif !important; font-size: 11pt !important; line-height: 2.2; text-align: justify;">`;
         const footer = "</body></html>";
         const sourceHTML = header + content + footer;
         const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
