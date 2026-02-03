@@ -498,15 +498,28 @@ export default function App() {
     const exportToWordWithName = (filename) => {
         let content = document.getElementById('document-preview').innerHTML;
 
-        // Si estamos en Paso 2 (Banderita) y el número de acta tiene más de 2 dígitos,
-        // eliminar dos guiones de la línea de guiones después del folio
+        // Si estamos en Paso 2 (Banderita), ajustar la cantidad de guiones automáticamente
+        // para que la línea siempre tenga el mismo largo visual
         if (activeSection === 'banderita') {
-            const numeroActa = formData['ACTA'] || formData['NUMERO_ACTA'] || formData['NRO_ACTA'] || formData['N° ACTA'] || formData['N_ACTA'] || '';
-            // Verificar si el número de acta tiene más de 2 dígitos (3 o más)
-            const digitos = numeroActa.replace(/\D/g, ''); // Solo dígitos
-            if (digitos.length >= 3) {
-                // Buscar secuencia larga de guiones y eliminar 2 de ellos
-                content = content.replace(/(----+)/, (match) => match.slice(2));
+            // Longitud base de la línea (cuando los números son de referencia: Tomo XX, Acta XX, Folio XX)
+            // La longitud de referencia es con 2 dígitos en cada campo
+            const nroTomo = formData['NRO TOMO'] || formData['NRO_TOMO'] || formData['TOMO'] || '00';
+            const nroActa = formData['NRO_ACTA'] || formData['NRO ACTA'] || formData['ACTA'] || '00';
+            const nroFolio = formData['NRO FOLIO'] || formData['NRO_FOLIO'] || formData['FOLIO'] || '00';
+
+            // Calcular cuántos caracteres extra ocupan los números (vs referencia de 2 dígitos)
+            const extraTomo = Math.max(0, String(nroTomo).length - 2);
+            const extraActa = Math.max(0, String(nroActa).length - 2);
+            const extraFolio = Math.max(0, String(nroFolio).length - 2);
+            const totalExtra = extraTomo + extraActa + extraFolio;
+
+            // Si hay caracteres extra, reducir guiones de la secuencia larga
+            if (totalExtra > 0) {
+                // Buscar la secuencia larga de guiones (la que está después del folio) y reducirla
+                content = content.replace(/(--{10,})/, (match) => {
+                    const newLength = Math.max(10, match.length - totalExtra);
+                    return '-'.repeat(newLength);
+                });
             }
         }
 
