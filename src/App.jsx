@@ -191,6 +191,10 @@ export default function App() {
     const [certificationTitle, setCertificationTitle] = useState(''); // Nuevo: Título de la certificación
     const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved
 
+    // Estado para Modal de Descarga
+    const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+    const [downloadFilename, setDownloadFilename] = useState('');
+
     // Estado para Historial Clientes
     const [selectedClientHistory, setSelectedClientHistory] = useState(null); // Cliente seleccionado para ver historial
 
@@ -303,20 +307,16 @@ export default function App() {
                     clientName: certificationClient.name,
                     templateId: currentTemplate.id,
                     templateTitle: currentTemplate.title,
-                    clientId: certificationClient.id,
-                    clientName: certificationClient.name,
-                    templateId: currentTemplate.id,
-                    templateTitle: currentTemplate.title,
                     certificationTitle: certificationTitle || currentTemplate.title, // Guardar título personalizado o fallback
                     templateData: formData,
                     status: 'draft',
-                    timestamp: serverTimestamp() // Updates timestamp on every save? Maybe creating field 'lastModified' is better
+                    lastModifiedBy: user?.email?.replace('@scrib-admin.local', '') || 'Desconocido',
+                    lastModifiedAt: serverTimestamp()
                 };
 
                 if (certificationId) {
                     await updateDoc(doc(db, "certifications", certificationId), {
-                        ...dataToSave,
-                        updatedAt: serverTimestamp() // Only update 'updatedAt'
+                        ...dataToSave
                     });
                     // Don't overwrite original timestamp
                 } else {
@@ -413,12 +413,21 @@ export default function App() {
             return;
         }
 
+        // Preparar nombre de archivo sugerido y abrir modal
+        const suggestedName = `${certificationClient.name}_${certificationTitle || currentTemplate.title}`;
+        setDownloadFilename(suggestedName);
+        setDownloadModalOpen(true);
+    };
+
+    const confirmDownload = async () => {
         // Final save with status 'completed'
         if (certificationId) {
             await updateDoc(doc(db, "certifications", certificationId), {
                 status: 'completed',
                 certificationTitle: certificationTitle,
-                templateData: formData // Ensure latest data
+                templateData: formData,
+                lastModifiedBy: user?.email?.replace('@scrib-admin.local', '') || 'Desconocido',
+                lastModifiedAt: serverTimestamp()
             });
         } else {
             // Should not happen due to auto-save, but strictly:
@@ -430,11 +439,14 @@ export default function App() {
                 certificationTitle: certificationTitle || currentTemplate.title,
                 templateData: formData,
                 status: 'completed',
-                timestamp: serverTimestamp()
+                timestamp: serverTimestamp(),
+                lastModifiedBy: user?.email?.replace('@scrib-admin.local', '') || 'Desconocido',
+                lastModifiedAt: serverTimestamp()
             });
         }
 
-        exportToWord();
+        exportToWordWithName(downloadFilename || 'Documento');
+        setDownloadModalOpen(false);
     };
 
     const handleResumeCertification = (cert) => {
@@ -476,7 +488,7 @@ export default function App() {
         }
     };
 
-    const exportToWord = () => {
+    const exportToWordWithName = (filename) => {
         const content = document.getElementById('document-preview').innerHTML;
         const header = `
             <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -489,7 +501,8 @@ export default function App() {
         const fileDownload = document.createElement("a");
         document.body.appendChild(fileDownload);
         fileDownload.href = source;
-        fileDownload.download = `${certificationClient ? certificationClient.name : 'Documento'}_${currentTemplate.title}.doc`;
+        // Usar nombre personalizado con extensión .doc
+        fileDownload.download = `${filename.replace(/\.doc$/i, '')}.doc`;
         fileDownload.click();
         document.body.removeChild(fileDownload);
     };
@@ -666,6 +679,7 @@ export default function App() {
                                         <th className="p-4 font-bold">Fecha</th>
                                         <th className="p-4 font-bold">Cliente</th>
                                         <th className="p-4 font-bold">Documento</th>
+                                        <th className="p-4 font-bold">Última Modificación</th>
                                         <th className="p-4 font-bold">Estado</th>
                                         <th className="p-4 font-bold text-right">Acciones</th>
                                     </tr>
@@ -679,6 +693,20 @@ export default function App() {
                                             </td>
                                             <td className="p-4 font-bold text-gray-800">{cert.clientName}</td>
                                             <td className="p-4 text-gray-800 font-medium">{cert.certificationTitle || cert.templateTitle}</td>
+                                            <td className="p-4 text-sm">
+                                                {cert.lastModifiedBy ? (
+                                                    <div>
+                                                        <span className="font-semibold text-gray-700">{cert.lastModifiedBy}</span><br />
+                                                        <span className="text-xs text-gray-400">
+                                                            {cert.lastModifiedAt ? new Date(cert.lastModifiedAt.seconds * 1000).toLocaleDateString() : ''}
+                                                            {' '}
+                                                            {cert.lastModifiedAt ? new Date(cert.lastModifiedAt.seconds * 1000).toLocaleTimeString() : ''}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </td>
                                             <td className="p-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${cert.status === 'completed' ? 'bg-green-100 text-green-700' :
                                                     cert.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
@@ -706,7 +734,7 @@ export default function App() {
                                     ))}
                                     {certifications.length === 0 && (
                                         <tr>
-                                            <td colSpan="5" className="p-8 text-center text-gray-400">No se encontraron certificaciones.</td>
+                                            <td colSpan="6" className="p-8 text-center text-gray-400">No se encontraron certificaciones.</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -984,6 +1012,53 @@ export default function App() {
                     </div>
                 )}
             </main>
+
+            {/* Modal de Descarga */}
+            {downloadModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-gray-100 rounded-lg text-gray-800">
+                                <Download size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800">Descargar Documento</h3>
+                                <p className="text-sm text-gray-500">Ingresa el nombre del archivo</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Nombre del archivo</label>
+                            <div className="flex items-center">
+                                <input
+                                    type="text"
+                                    value={downloadFilename}
+                                    onChange={(e) => setDownloadFilename(e.target.value)}
+                                    className="flex-1 p-3 border rounded-l-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                    placeholder="Nombre del documento..."
+                                    autoFocus
+                                />
+                                <span className="bg-gray-200 text-gray-600 px-3 py-3 rounded-r-lg border border-l-0 font-mono text-sm">.doc</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDownloadModalOpen(false)}
+                                className="flex-1 py-3 px-4 border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:bg-gray-50 transition"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmDownload}
+                                className="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition flex items-center justify-center gap-2"
+                            >
+                                <Download size={18} /> Descargar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
