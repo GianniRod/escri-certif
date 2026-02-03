@@ -521,7 +521,7 @@ export default function App() {
                         mso-font-charset: 0;
                     }
                     body { margin: 0; padding: 0; }
-                    * { font-family: Arial, Helvetica, sans-serif !important; }
+                    * { font-family: Arial, Helvetica, sans-serif !important; font-size: 11pt !important; }
                 </style>
             </head>
             <body style="font-family: Arial, Helvetica, sans-serif !important; font-size: 11pt !important; line-height: 2.2; text-align: justify;">`;
