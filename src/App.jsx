@@ -508,8 +508,8 @@ export default function App() {
         const fileDownload = document.createElement("a");
         document.body.appendChild(fileDownload);
         fileDownload.href = source;
-        // Usar nombre personalizado con extensión .doc
-        fileDownload.download = `${filename.replace(/\.doc$/i, '')}.doc`;
+        // Usar nombre personalizado con extensión .docx
+        fileDownload.download = `${filename.replace(/\.docx?$/i, '')}.docx`;
         fileDownload.click();
         document.body.removeChild(fileDownload);
     };
@@ -1122,7 +1122,7 @@ export default function App() {
                                     placeholder="Nombre del documento..."
                                     autoFocus
                                 />
-                                <span className="bg-gray-200 text-gray-600 px-3 py-3 rounded-r-lg border border-l-0 font-mono text-sm">.doc</span>
+                                <span className="bg-gray-200 text-gray-600 px-3 py-3 rounded-r-lg border border-l-0 font-mono text-sm">.docx</span>
                             </div>
                         </div>
 
