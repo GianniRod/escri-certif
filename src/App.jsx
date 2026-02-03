@@ -499,28 +499,32 @@ export default function App() {
         let content = document.getElementById('document-preview').innerHTML;
 
         // Si estamos en Paso 2 (Banderita), ajustar la cantidad de guiones automáticamente
-        // para que la línea siempre tenga el mismo largo visual
+        // para que "Silvana Andrea BOLLATI" siempre quede en el renglón de abajo
         if (activeSection === 'banderita') {
-            // Longitud base de la línea (cuando los números son de referencia: Tomo XX, Acta XX, Folio XX)
-            // La longitud de referencia es con 2 dígitos en cada campo
-            const nroTomo = formData['NRO TOMO'] || formData['NRO_TOMO'] || formData['TOMO'] || '00';
-            const nroActa = formData['NRO_ACTA'] || formData['NRO ACTA'] || formData['ACTA'] || '00';
-            const nroFolio = formData['NRO FOLIO'] || formData['NRO_FOLIO'] || formData['FOLIO'] || '00';
+            // Obtener los valores de los campos
+            const nroTomo = formData['NRO TOMO'] || formData['NRO_TOMO'] || formData['TOMO'] || '';
+            const nroActa = formData['NRO_ACTA'] || formData['NRO ACTA'] || formData['ACTA'] || '';
+            const nroFolio = formData['NRO FOLIO'] || formData['NRO_FOLIO'] || formData['FOLIO'] || '';
 
-            // Calcular cuántos caracteres extra ocupan los números (vs referencia de 2 dígitos)
-            const extraTomo = Math.max(0, String(nroTomo).length - 2);
-            const extraActa = Math.max(0, String(nroActa).length - 2);
-            const extraFolio = Math.max(0, String(nroFolio).length - 2);
-            const totalExtra = extraTomo + extraActa + extraFolio;
+            // Calcular la cantidad de caracteres usados en la primera línea
+            // Formato: "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo XX.------- Acta Número XXX.- Folio XX"
+            const textoFijo = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo .------- Acta Número .- Folio ";
+            const caracteresUsados = textoFijo.length + String(nroTomo).length + String(nroActa).length + String(nroFolio).length;
 
-            // Si hay caracteres extra, reducir guiones de la secuencia larga
-            if (totalExtra > 0) {
-                // Buscar la secuencia larga de guiones (la que está después del folio) y reducirla
-                content = content.replace(/(--{10,})/, (match) => {
-                    const newLength = Math.max(10, match.length - totalExtra);
-                    return '-'.repeat(newLength);
-                });
-            }
+            // Ancho aproximado de línea en caracteres para Arial 11pt en A4 (~85-90 caracteres)
+            const anchoLinea = 88;
+
+            // Calcular cuántos guiones necesitamos para completar la línea
+            const guionesNecesarios = Math.max(10, anchoLinea - caracteresUsados);
+
+            // Buscar el patrón del folio seguido de guiones o espacio antes de "Silvana"
+            // y reemplazar con la cantidad correcta de guiones
+            content = content.replace(
+                /(Folio\s*\d+)(\s*-*)(\s*)(Silvana)/gi,
+                (match, folio, guionesExistentes, espacio, silvana) => {
+                    return folio + '-'.repeat(guionesNecesarios) + silvana;
+                }
+            );
         }
 
         const header = `
