@@ -499,14 +499,14 @@ export default function App() {
         let content = document.getElementById('document-preview').innerHTML;
 
         // Si estamos en Paso 2 (Banderita) y el número de acta tiene más de 2 dígitos,
-        // eliminar dos guiones después del número de folio
+        // eliminar dos guiones de la línea de guiones después del folio
         if (activeSection === 'banderita') {
-            const numeroActa = formData['ACTA'] || formData['NUMERO_ACTA'] || formData['NRO_ACTA'] || formData['N° ACTA'] || '';
-            // Verificar si el número de acta tiene más de 2 dígitos
+            const numeroActa = formData['ACTA'] || formData['NUMERO_ACTA'] || formData['NRO_ACTA'] || formData['N° ACTA'] || formData['N_ACTA'] || '';
+            // Verificar si el número de acta tiene más de 2 dígitos (3 o más)
             const digitos = numeroActa.replace(/\D/g, ''); // Solo dígitos
-            if (digitos.length > 2) {
-                // Eliminar dos guiones después del folio (buscar patrón: folio seguido de guiones)
-                content = content.replace(/(--)(\s*)(--)/, '$2');
+            if (digitos.length >= 3) {
+                // Buscar secuencia larga de guiones y eliminar 2 de ellos
+                content = content.replace(/(----+)/, (match) => match.slice(2));
             }
         }
 
