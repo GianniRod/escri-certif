@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     FileText, Plus, Edit3, Trash2, ArrowLeft, Save,
-    Download, PenTool, LayoutTemplate, Bold, Underline, CheckSquare,
+    Download, PenTool, LayoutTemplate, Bold, Italic, Underline, CheckSquare,
     Users, Search, Clock, ChevronRight, FileCheck, AlertCircle
 } from 'lucide-react';
 
@@ -56,6 +56,9 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
             <div className="flex items-center gap-2 p-2 bg-gray-50 border-b">
                 <button onMouseDown={(e) => { e.preventDefault(); execCmd('bold'); }} className="p-2 hover:bg-gray-200 rounded text-gray-700" title="Negrita">
                     <Bold size={18} />
+                </button>
+                <button onMouseDown={(e) => { e.preventDefault(); execCmd('italic'); }} className="p-2 hover:bg-gray-200 rounded text-gray-700" title="Cursiva">
+                    <Italic size={18} />
                 </button>
                 <button onMouseDown={(e) => { e.preventDefault(); execCmd('underline'); }} className="p-2 hover:bg-gray-200 rounded text-gray-700" title="Subrayado">
                     <Underline size={18} />
