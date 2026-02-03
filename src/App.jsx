@@ -195,6 +195,10 @@ export default function App() {
     const [downloadModalOpen, setDownloadModalOpen] = useState(false);
     const [downloadFilename, setDownloadFilename] = useState('');
 
+    // Estado para Edición de Clientes
+    const [clientEditModalOpen, setClientEditModalOpen] = useState(false);
+    const [editingClient, setEditingClient] = useState(null);
+
     // Estado para Historial Clientes
     const [selectedClientHistory, setSelectedClientHistory] = useState(null); // Cliente seleccionado para ver historial
 
@@ -541,6 +545,34 @@ export default function App() {
         }
     };
 
+    const handleEditClient = (client) => {
+        setEditingClient({ ...client });
+        setClientEditModalOpen(true);
+    };
+
+    const handleSaveClient = async () => {
+        if (!editingClient || !editingClient.id) return;
+        try {
+            await updateDoc(doc(db, "clients", editingClient.id), {
+                name: editingClient.name?.toUpperCase() || '',
+                dni: editingClient.dni || '',
+                estadoCivil: editingClient.estadoCivil || '',
+                address: editingClient.address || '',
+                notes: editingClient.notes || '',
+                updatedAt: serverTimestamp()
+            });
+            // Actualizar el cliente seleccionado si es el mismo
+            if (selectedClientHistory?.id === editingClient.id) {
+                setSelectedClientHistory({ ...editingClient, name: editingClient.name?.toUpperCase() });
+            }
+            setClientEditModalOpen(false);
+            setEditingClient(null);
+        } catch (error) {
+            console.error("Error updating client:", error);
+            alert("Error al guardar los cambios del cliente.");
+        }
+    };
+
     // --- RENDER ---
     if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-500">Cargando...</p></div>;
 
@@ -773,10 +805,56 @@ export default function App() {
                                     <div className="flex justify-between items-center mb-6 pb-4 border-b">
                                         <div>
                                             <h2 className="text-2xl font-bold text-gray-900">{selectedClientHistory.name}</h2>
-                                            <p className="text-gray-500">Documentos Asociados</p>
+                                            <p className="text-gray-500">Información del Cliente</p>
                                         </div>
+                                        <button
+                                            onClick={() => handleEditClient(selectedClientHistory)}
+                                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2 transition"
+                                        >
+                                            <Edit3 size={16} /> Editar Cliente
+                                        </button>
                                     </div>
-                                    <div className="space-y-4">
+
+                                    {/* Información Personal del Cliente */}
+                                    {(selectedClientHistory.dni || selectedClientHistory.estadoCivil || selectedClientHistory.address || selectedClientHistory.notes) && (
+                                        <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <Users size={16} /> Datos Personales
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {selectedClientHistory.dni && (
+                                                    <div>
+                                                        <span className="text-xs font-bold text-gray-500 uppercase">DNI</span>
+                                                        <p className="text-gray-800">{selectedClientHistory.dni}</p>
+                                                    </div>
+                                                )}
+                                                {selectedClientHistory.estadoCivil && (
+                                                    <div>
+                                                        <span className="text-xs font-bold text-gray-500 uppercase">Estado Civil</span>
+                                                        <p className="text-gray-800">{selectedClientHistory.estadoCivil}</p>
+                                                    </div>
+                                                )}
+                                                {selectedClientHistory.address && (
+                                                    <div className="md:col-span-2">
+                                                        <span className="text-xs font-bold text-gray-500 uppercase">Domicilio</span>
+                                                        <p className="text-gray-800">{selectedClientHistory.address}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {selectedClientHistory.notes && (
+                                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                                    <span className="text-xs font-bold text-gray-500 uppercase">Observaciones</span>
+                                                    <p className="text-gray-700 whitespace-pre-wrap">{selectedClientHistory.notes}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Documentos Asociados */}
+                                    <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <FileText size={16} /> Documentos Asociados
+                                    </h3>
+                                    <div className="space-y-3">
                                         {certifications.filter(c => c.clientId === selectedClientHistory.id).map(doc => (
                                             <div key={doc.id} className="p-4 rounded-xl border border-gray-100 hover:shadow-md transition bg-gray-50 flex justify-between items-center">
                                                 <div>
@@ -790,6 +868,9 @@ export default function App() {
                                                 </span>
                                             </div>
                                         ))}
+                                        {certifications.filter(c => c.clientId === selectedClientHistory.id).length === 0 && (
+                                            <p className="text-gray-400 text-sm text-center py-4">No hay documentos asociados a este cliente.</p>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -1054,6 +1135,100 @@ export default function App() {
                                 className="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition flex items-center justify-center gap-2"
                             >
                                 <Download size={18} /> Descargar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Edición de Cliente */}
+            {clientEditModalOpen && editingClient && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-gray-100 rounded-lg text-gray-800">
+                                <Users size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800">Editar Cliente</h3>
+                                <p className="text-sm text-gray-500">Actualiza la información del cliente</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nombre y Apellido</label>
+                                <input
+                                    type="text"
+                                    value={editingClient.name || ''}
+                                    onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                    placeholder="Nombre completo del cliente..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">DNI</label>
+                                    <input
+                                        type="text"
+                                        value={editingClient.dni || ''}
+                                        onChange={(e) => setEditingClient({ ...editingClient, dni: e.target.value })}
+                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                        placeholder="12.345.678"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Estado Civil</label>
+                                    <select
+                                        value={editingClient.estadoCivil || ''}
+                                        onChange={(e) => setEditingClient({ ...editingClient, estadoCivil: e.target.value })}
+                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        <option value="Soltero/a">Soltero/a</option>
+                                        <option value="Casado/a">Casado/a</option>
+                                        <option value="Divorciado/a">Divorciado/a</option>
+                                        <option value="Viudo/a">Viudo/a</option>
+                                        <option value="Unión Convivencial">Unión Convivencial</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Domicilio</label>
+                                <input
+                                    type="text"
+                                    value={editingClient.address || ''}
+                                    onChange={(e) => setEditingClient({ ...editingClient, address: e.target.value })}
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                    placeholder="Calle, Número, Ciudad..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Observaciones del Cliente</label>
+                                <textarea
+                                    value={editingClient.notes || ''}
+                                    onChange={(e) => setEditingClient({ ...editingClient, notes: e.target.value })}
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50 min-h-[100px] resize-none"
+                                    placeholder="Información adicional, notas importantes..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => { setClientEditModalOpen(false); setEditingClient(null); }}
+                                className="flex-1 py-3 px-4 border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:bg-gray-50 transition"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleSaveClient}
+                                className="flex-1 py-3 px-4 bg-gray-800 text-white rounded-lg font-bold hover:bg-gray-900 transition flex items-center justify-center gap-2"
+                            >
+                                <Save size={18} /> Guardar Cambios
                             </button>
                         </div>
                     </div>
