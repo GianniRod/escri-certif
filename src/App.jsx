@@ -601,7 +601,9 @@ export default function App() {
             </head>
             <body><div class="Section1">`;
         const footer = "</div></body></html>";
-        const sourceHTML = header + content + footer;
+        // Envolver el contenido en un span con Arial 11pt forzado para Word
+        const styledContent = `<span style="font-family: Arial, sans-serif !important; font-size: 11pt !important;">${content}</span>`;
+        const sourceHTML = header + styledContent + footer;
         const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
         const fileDownload = document.createElement("a");
         document.body.appendChild(fileDownload);
