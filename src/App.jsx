@@ -29,14 +29,6 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
     // Sync content ONLY when it changes externally and is different
     useEffect(() => {
         if (editorRef.current && content !== editorRef.current.innerHTML) {
-            // Need to preserve cursor if focused? No, if content changed externally we likely want to update.
-            // But if it's a loopback (type -> state -> prop), we must NOT update if innerHTML matches.
-            // But here innerHTML might differ slightly (browser normalization).
-            // A simple check is: if we are focused, assume we are the source of truth for now?
-            // No, that breaks collaboration or format buttons.
-            // Best bet: perform the update, but the check must be robust.
-            // HOWEVER, the main issue was dangerouslySetInnerHTML forcing re-render.
-            // With that removed, this useEffect is the only updater.
             editorRef.current.innerHTML = content || '';
         }
     }, [content]);
@@ -49,6 +41,19 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
     const execCmd = (command) => {
         document.execCommand(command, false, null);
         editorRef.current.focus();
+    };
+
+    const applyFontSize = (size) => {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && !selection.isCollapsed) {
+            const range = selection.getRangeAt(0);
+            const span = document.createElement('span');
+            span.style.fontFamily = 'Arial, sans-serif';
+            span.style.fontSize = size + 'pt';
+            range.surroundContents(span);
+            editorRef.current.focus();
+            handleInput();
+        }
     };
 
     return (
@@ -64,7 +69,20 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
                     <Underline size={18} />
                 </button>
                 <div className="h-6 w-px bg-gray-300 mx-2"></div>
-                <span className="text-xs text-gray-500 font-medium">Arial 11pt (Automático)</span>
+                <select
+                    onChange={(e) => { if (e.target.value) applyFontSize(e.target.value); e.target.value = ''; }}
+                    className="px-2 py-1 border rounded text-sm bg-white hover:bg-gray-100 cursor-pointer"
+                    defaultValue=""
+                >
+                    <option value="" disabled>Tamaño</option>
+                    <option value="10">Arial 10pt</option>
+                    <option value="11">Arial 11pt</option>
+                    <option value="12">Arial 12pt</option>
+                    <option value="14">Arial 14pt</option>
+                    <option value="16">Arial 16pt</option>
+                    <option value="18">Arial 18pt</option>
+                </select>
+                <span className="text-xs text-gray-500 font-medium ml-2">Por defecto: Arial 11pt</span>
             </div>
 
             <div
@@ -82,7 +100,7 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
                 placeholder={placeholder}
             />
             <div className="px-4 py-2 bg-yellow-50 text-xs text-yellow-700 border-t flex justify-between">
-                <span>Tip: Puedes pegar contenido directamente desde Word manteniendo el formato.</span>
+                <span>Tip: Selecciona texto y usa el menú Tamaño para cambiar la fuente. Siempre será Arial.</span>
             </div>
         </div>
     );
