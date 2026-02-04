@@ -1169,8 +1169,8 @@ export default function App() {
                                                 const textoBase = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + nroTomo + ".- Acta Número " + nroActa + ".- Folio " + nroFolio + ".";
                                                 const posicionActual = textoBase.length;
 
-                                                // Guiones hasta carácter 150
-                                                const caracterObjetivo = 150;
+                                                // Guiones hasta carácter 165 (dos renglones completos de 82.5 caracteres cada uno)
+                                                const caracterObjetivo = 165;
                                                 const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
                                                 const guiones = '-'.repeat(guionesNecesarios);
 
