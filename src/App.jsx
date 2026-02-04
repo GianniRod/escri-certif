@@ -499,30 +499,29 @@ export default function App() {
         let content = document.getElementById('document-preview').innerHTML;
 
         // Si estamos en Paso 2 (Banderita), ajustar la cantidad de guiones automáticamente
-        // para que "Silvana Andrea BOLLATI" siempre quede en el renglón de abajo
+        // Cada renglón = 75 caracteres, "Silvana Andrea BOLLATI" debe empezar en carácter 151 (tercer renglón)
         if (activeSection === 'banderita') {
             // Obtener los valores de los campos
             const nroTomo = formData['NRO TOMO'] || formData['NRO_TOMO'] || formData['TOMO'] || '';
             const nroActa = formData['NRO_ACTA'] || formData['NRO ACTA'] || formData['ACTA'] || '';
             const nroFolio = formData['NRO FOLIO'] || formData['NRO_FOLIO'] || formData['FOLIO'] || '';
 
-            // La segunda línea empieza con "Número XX.- Folio YY"
-            // Necesitamos calcular cuántos guiones para llenar hasta el final de la línea
-            const textoSegundaLinea = "Número .- Folio ";
-            const caracteresSegundaLinea = textoSegundaLinea.length + String(nroActa).length + String(nroFolio).length;
+            // Texto completo antes del Folio (primera línea completa + inicio segunda línea)
+            const primeraLinea = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + String(nroTomo) + ".------- Acta ";
+            const segundaLineaInicio = "Número " + String(nroActa) + ".- Folio " + String(nroFolio);
 
-            // Ancho de línea en Google Docs/Word A4 con Arial 11 (~95-100 caracteres por línea)
-            const anchoLinea = 97;
+            // Posición actual después del folio
+            const posicionActual = primeraLinea.length + segundaLineaInicio.length;
 
-            // Calcular guiones necesarios para llenar el resto de la segunda línea
-            const guionesNecesarios = Math.max(50, anchoLinea - caracteresSegundaLinea);
+            // Silvana debe empezar en carácter 151, así que guiones hasta carácter 150
+            const caracterObjetivo = 150;
+            const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
 
-            // Buscar el patrón del folio seguido de cualquier contenido antes de "Silvana"
-            // y reemplazar con la cantidad correcta de guiones
+            // Buscar el patrón y reemplazar
             content = content.replace(
                 /(Folio\s*)(\d+)(\s*-*\s*)(Silvana)/gi,
                 (match, folioText, folioNum, guionesExistentes, silvana) => {
-                    return folioText + folioNum + ' ' + '-'.repeat(guionesNecesarios) + '\n' + silvana;
+                    return folioText + folioNum + '-'.repeat(guionesNecesarios) + silvana;
                 }
             );
         }
