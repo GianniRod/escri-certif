@@ -511,7 +511,7 @@ export default function App() {
             const nroFolio = formData['NRO FOLIO'] || formData['NRO_FOLIO'] || formData['FOLIO'] || '';
 
             // Texto completo antes del Folio (primera línea completa + inicio segunda línea)
-            const primeraLinea = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + String(nroTomo) + ".------- Acta ";
+            const primeraLinea = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + String(nroTomo) + ".- Acta ";
             const segundaLineaInicio = "Número " + String(nroActa) + ".- Folio " + String(nroFolio);
 
             // Posición actual después del folio
@@ -994,7 +994,7 @@ export default function App() {
                                             style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt', lineHeight: '2.2', textAlign: 'justify' }}
                                         >
                                             <span style={{ fontWeight: 'bold', textDecoration: 'underline', backgroundColor: '#fef3c7' }}>
-                                                Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo <span style={{ color: 'red', background: '#fee2e2' }}>[NRO TOMO]</span>.------- Acta Número <span style={{ color: 'red', background: '#fee2e2' }}>[NRO_ACTA]</span>.- Folio <span style={{ color: 'red', background: '#fee2e2' }}>[NRO FOLIO]</span>
+                                                Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo <span style={{ color: 'red', background: '#fee2e2' }}>[NRO TOMO]</span>.- Acta Número <span style={{ color: 'red', background: '#fee2e2' }}>[NRO_ACTA]</span>.- Folio <span style={{ color: 'red', background: '#fee2e2' }}>[NRO FOLIO]</span>.
                                             </span>
                                         </div>
                                     )}
@@ -1165,8 +1165,8 @@ export default function App() {
                                                 const nroFolio = formData['NRO FOLIO'] || '[NRO FOLIO]';
 
                                                 // Calcular posición actual después del folio
-                                                // Texto base: "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo XX.------- Acta Número XXX.- Folio YY"
-                                                const textoBase = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + nroTomo + ".------- Acta Número " + nroActa + ".- Folio " + nroFolio;
+                                                // Texto base: "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo XX.- Acta Número XXX.- Folio YY."
+                                                const textoBase = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + nroTomo + ".- Acta Número " + nroActa + ".- Folio " + nroFolio + ".";
                                                 const posicionActual = textoBase.length;
 
                                                 // Guiones hasta carácter 150
@@ -1174,7 +1174,7 @@ export default function App() {
                                                 const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
                                                 const guiones = '-'.repeat(guionesNecesarios);
 
-                                                const encabezadoFijo = `<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.------- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}${guiones}</u></b>`;
+                                                const encabezadoFijo = `<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}.${guiones}</u></b>`;
 
                                                 // Remover cualquier encabezado existente similar para evitar duplicados
                                                 text = text.replace(/<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares.*?<\/u><\/b>/gi, '');
