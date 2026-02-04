@@ -982,11 +982,16 @@ export default function App() {
                                     {currentTemplate.hasBanderita && <button onClick={() => setActiveSection('banderita')} className={`px-6 py-3 font-bold text-sm ${activeSection === 'banderita' ? 'text-gray-800 border-b-2 border-gray-800' : ''}`}>PASO 2: BANDERITA</button>}
                                 </div>
                                 <div className="flex-1 bg-gray-50 p-4">
-                                    {/* Mostrar encabezado fijo para banderita */}
+                                    {/* Encabezado fijo para banderita - no editable, fondo beige, subrayado */}
                                     {activeSection === 'banderita' && (
-                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm">
-                                            <p className="font-bold text-yellow-800 mb-1">📌 Encabezado fijo (se agrega automáticamente):</p>
-                                            <p className="text-yellow-700"><b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {'{{NRO TOMO}}'}.------- Acta Número {'{{NRO_ACTA}}'}.- Folio {'{{NRO FOLIO}}'}</u></b></p>
+                                        <div
+                                            contentEditable={false}
+                                            className="bg-amber-50 border-b border-amber-200 p-4 mb-0 select-none pointer-events-none"
+                                            style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt', lineHeight: '2.2', textAlign: 'justify' }}
+                                        >
+                                            <span style={{ fontWeight: 'bold', textDecoration: 'underline', backgroundColor: '#fef3c7' }}>
+                                                Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo <span style={{ color: 'red', background: '#fee2e2' }}>[NRO TOMO]</span>.------- Acta Número <span style={{ color: 'red', background: '#fee2e2' }}>[NRO_ACTA]</span>.- Folio <span style={{ color: 'red', background: '#fee2e2' }}>[NRO FOLIO]</span>
+                                            </span>
                                         </div>
                                     )}
                                     <RichTextEditor
