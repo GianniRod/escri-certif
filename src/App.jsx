@@ -1164,13 +1164,13 @@ export default function App() {
                                                 const nroActa = formData['NRO_ACTA'] || '[NRO_ACTA]';
                                                 const nroFolio = formData['NRO FOLIO'] || '[NRO FOLIO]';
 
-                                                // Calcular posición actual después del folio
+                                                // Calcular posición actual después del folio CON LOS VALORES REALES
                                                 // Texto base: "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo XX.- Acta Número XXX.- Folio YY."
                                                 const textoBase = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + nroTomo + ".- Acta Número " + nroActa + ".- Folio " + nroFolio + ".";
                                                 const posicionActual = textoBase.length;
 
-                                                // Guiones hasta carácter 165 (dos renglones completos de 82.5 caracteres cada uno)
-                                                const caracterObjetivo = 165;
+                                                // Rellenar con guiones hasta 207 caracteres (sin importar si ACTA es 2 o 3 dígitos)
+                                                const caracterObjetivo = 207;
                                                 const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
                                                 const guiones = '-'.repeat(guionesNecesarios);
 
