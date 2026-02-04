@@ -387,7 +387,11 @@ export default function App() {
         // Extract vars
         let vars = [];
         if (template.hasActa) vars = [...vars, ...extractVariables(template.contentActa)];
-        if (template.hasBanderita) vars = [...vars, ...extractVariables(template.contentBanderita)];
+        if (template.hasBanderita) {
+            vars = [...vars, ...extractVariables(template.contentBanderita)];
+            // Agregar variables del encabezado fijo de banderita
+            vars = [...vars, 'NRO TOMO', 'NRO_ACTA', 'NRO FOLIO'];
+        }
         vars = [...new Set(vars)];
 
         const initialData = {};
