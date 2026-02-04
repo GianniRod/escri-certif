@@ -1092,7 +1092,13 @@ export default function App() {
                                         {(() => {
                                             // Extract vars for current section ONLY
                                             const sectionContent = activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita;
-                                            const sectionVars = extractVariables(sectionContent);
+                                            let sectionVars = extractVariables(sectionContent);
+
+                                            // Si es banderita, agregar las variables del encabezado fijo
+                                            if (activeSection === 'banderita') {
+                                                sectionVars = ['NRO TOMO', 'NRO_ACTA', 'NRO FOLIO', ...sectionVars];
+                                                sectionVars = [...new Set(sectionVars)]; // Eliminar duplicados
+                                            }
 
                                             // Always include FECHA if present in logic, but here relying on text content
                                             // If no vars found for this section, show message
