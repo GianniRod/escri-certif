@@ -601,8 +601,12 @@ export default function App() {
             </head>
             <body><div class="Section1">`;
         const footer = "</div></body></html>";
+        // Limpiar fuentes Roboto y forzar Arial 11pt en todo el contenido
+        let cleanedContent = content
+            .replace(/font-family:\s*[^;]+;?/gi, 'font-family: Arial, sans-serif;')
+            .replace(/font-size:\s*[^;]+;?/gi, 'font-size: 11pt;');
         // Envolver el contenido en un span con Arial 11pt forzado para Word
-        const styledContent = `<span style="font-family: Arial, sans-serif !important; font-size: 11pt !important;">${content}</span>`;
+        const styledContent = `<span style="font-family: Arial, sans-serif; font-size: 11pt;">${cleanedContent}</span>`;
         const sourceHTML = header + styledContent + footer;
         const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
         const fileDownload = document.createElement("a");
