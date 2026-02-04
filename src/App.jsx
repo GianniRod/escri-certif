@@ -1179,7 +1179,7 @@ export default function App() {
                                                 const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
                                                 const guiones = '-'.repeat(guionesNecesarios);
 
-                                                const encabezadoFijo = `<p style="font-family: Arial, Helvetica, sans-serif; font-size: 12pt; mso-style-font-size: 12.0pt;"><b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}.${guiones}</u></b></p>`;
+                                                const encabezadoFijo = `<font face="Arial" size="3"><b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}.${guiones}</u></b></font>`;
 
                                                 // Remover cualquier encabezado existente similar para evitar duplicados
                                                 text = text.replace(/<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares.*?<\/u><\/b>/gi, '');
