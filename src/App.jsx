@@ -544,22 +544,45 @@ export default function App() {
                     </w:WordDocument>
                 </xml>
                 <![endif]-->
+                <!--[if gte mso 9]>
+                <xml>
+                    <w:Section>
+                        <w:PageSetup>
+                            <w:PageMargins w:top="1134" w:right="567" w:bottom="283" w:left="1134"/>
+                        </w:PageSetup>
+                    </w:Section>
+                </xml>
+                <![endif]-->
                 <style>
-                    @page { size: A4; margin: 4cm 2cm 1cm 4cm; }
-                    body, p, div, span, td, th, li, a { 
-                        font-family: Arial, Helvetica, sans-serif !important; 
-                        font-size: 11pt !important; 
+                    @page Section1 {
+                        size: 21cm 29.7cm;
+                        margin: 4cm 2cm 1cm 4cm;
+                        mso-page-orientation: portrait;
+                        mso-header-margin: 0cm;
+                        mso-footer-margin: 0cm;
+                    }
+                    div.Section1 { page: Section1; }
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        font-size: 11pt;
                         line-height: 2.2; 
                         text-align: justify;
-                        mso-font-charset: 0;
+                        margin: 0;
+                        padding: 0;
                     }
-                    body { margin: 0; padding: 0; }
-                    * { font-family: Arial, Helvetica, sans-serif !important; font-size: 11pt !important; }
-                    .encabezado-banderita { font-size: 12pt !important; }
+                    p, div, span { 
+                        font-family: Arial, sans-serif; 
+                        font-size: 11pt;
+                    }
+                    .encabezado12 {
+                        font-family: Arial, sans-serif;
+                        font-size: 12pt;
+                        mso-bidi-font-size: 12.0pt;
+                    }
                 </style>
             </head>
-            <body style="font-family: Arial, Helvetica, sans-serif !important; font-size: 11pt !important; line-height: 2.2; text-align: justify;">`;
-        const footer = "</body></html>";
+            <body><div class="Section1">`;
+        const footer = "</div></body></html>";
         const sourceHTML = header + content + footer;
         const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
         const fileDownload = document.createElement("a");
@@ -1179,7 +1202,7 @@ export default function App() {
                                                 const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
                                                 const guiones = '-'.repeat(guionesNecesarios);
 
-                                                const encabezadoFijo = `<font face="Arial" size="3"><b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}.${guiones}</u></b></font>`;
+                                                const encabezadoFijo = `<span class="encabezado12" style="font-family: Arial, sans-serif; font-size: 12pt;"><b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}.${guiones}</u></b></span>`;
 
                                                 // Remover cualquier encabezado existente similar para evitar duplicados
                                                 text = text.replace(/<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares.*?<\/u><\/b>/gi, '');
