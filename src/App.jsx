@@ -1157,12 +1157,28 @@ export default function App() {
                                             const rawContent = activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita;
                                             let text = rawContent || '';
 
-                                            // Si es banderita, agregar encabezado fijo al inicio
+                                            // Si es banderita, agregar encabezado fijo al inicio con guiones calculados
                                             if (activeSection === 'banderita') {
-                                                const encabezadoFijo = `<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.------- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}</u></b>`;
+                                                // Obtener valores de las variables
+                                                const nroTomo = formData['NRO TOMO'] || '[NRO TOMO]';
+                                                const nroActa = formData['NRO_ACTA'] || '[NRO_ACTA]';
+                                                const nroFolio = formData['NRO FOLIO'] || '[NRO FOLIO]';
+
+                                                // Calcular posición actual después del folio
+                                                // Texto base: "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo XX.------- Acta Número XXX.- Folio YY"
+                                                const textoBase = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + nroTomo + ".------- Acta Número " + nroActa + ".- Folio " + nroFolio;
+                                                const posicionActual = textoBase.length;
+
+                                                // Guiones hasta carácter 150
+                                                const caracterObjetivo = 150;
+                                                const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
+                                                const guiones = '-'.repeat(guionesNecesarios);
+
+                                                const encabezadoFijo = `<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.------- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}${guiones}</u></b>`;
+
                                                 // Remover cualquier encabezado existente similar para evitar duplicados
                                                 text = text.replace(/<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares.*?<\/u><\/b>/gi, '');
-                                                text = text.replace(/Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo.*?Folio\s*\{\{NRO FOLIO\}\}/gi, '');
+                                                text = text.replace(/Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo.*?Folio\s*\{\{NRO FOLIO\}\}[-]*/gi, '');
                                                 text = encabezadoFijo + text;
                                             }
 
