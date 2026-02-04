@@ -1134,6 +1134,16 @@ export default function App() {
                                         {(() => {
                                             const rawContent = activeSection === 'acta' ? currentTemplate.contentActa : currentTemplate.contentBanderita;
                                             let text = rawContent || '';
+
+                                            // Si es banderita, agregar encabezado fijo al inicio
+                                            if (activeSection === 'banderita') {
+                                                const encabezadoFijo = `<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.------- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}</u></b>`;
+                                                // Remover cualquier encabezado existente similar para evitar duplicados
+                                                text = text.replace(/<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares.*?<\/u><\/b>/gi, '');
+                                                text = text.replace(/Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo.*?Folio\s*\{\{NRO FOLIO\}\}/gi, '');
+                                                text = encabezadoFijo + text;
+                                            }
+
                                             Object.keys(formData).forEach(key => {
                                                 const val = formData[key] || `<span style="color:red; background:#fee">[${key}]</span>`;
                                                 text = text.replaceAll(`{{${key}}}`, val);
