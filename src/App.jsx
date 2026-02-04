@@ -545,7 +545,7 @@ export default function App() {
                 </xml>
                 <![endif]-->
                 <style>
-                    @page { size: A4; margin: 2.5cm; }
+                    @page { size: A4; margin: 4cm 2cm 1cm 4cm; }
                     body, p, div, span, td, th, li, a { 
                         font-family: Arial, Helvetica, sans-serif !important; 
                         font-size: 11pt !important; 
@@ -555,6 +555,7 @@ export default function App() {
                     }
                     body { margin: 0; padding: 0; }
                     * { font-family: Arial, Helvetica, sans-serif !important; font-size: 11pt !important; }
+                    .encabezado-banderita { font-size: 12pt !important; }
                 </style>
             </head>
             <body style="font-family: Arial, Helvetica, sans-serif !important; font-size: 11pt !important; line-height: 2.2; text-align: justify;">`;
@@ -1169,16 +1170,16 @@ export default function App() {
                                                 const textoBase = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + nroTomo + ".- Acta Número " + nroActa + ".- Folio " + nroFolio + ".";
                                                 const posicionActual = textoBase.length;
 
-                                                // Rellenar con guiones hasta 207 caracteres
-                                                // Si ACTA tiene 3 dígitos, restar 1 para compensar
-                                                let caracterObjetivo = 207;
-                                                if (String(nroActa).length >= 3) {
-                                                    caracterObjetivo = 206; // Un guión menos para 3 dígitos
+                                                // Rellenar con guiones hasta 170 caracteres
+                                                // Si ACTA tiene 2 dígitos, restar 1 para compensar
+                                                let caracterObjetivo = 170;
+                                                if (String(nroActa).length <= 2) {
+                                                    caracterObjetivo = 169; // Un guión menos para 2 dígitos
                                                 }
                                                 const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
                                                 const guiones = '-'.repeat(guionesNecesarios);
 
-                                                const encabezadoFijo = `<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}.${guiones}</u></b>`;
+                                                const encabezadoFijo = `<span class="encabezado-banderita" style="font-size: 12pt !important;"><b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo {{NRO TOMO}}.- Acta Número {{NRO_ACTA}}.- Folio {{NRO FOLIO}}.${guiones}</u></b></span>`;
 
                                                 // Remover cualquier encabezado existente similar para evitar duplicados
                                                 text = text.replace(/<b><u>Libro de Registro de Actos e Intervenciones Extraprotocolares.*?<\/u><\/b>/gi, '');
