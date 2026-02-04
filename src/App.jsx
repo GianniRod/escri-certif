@@ -548,8 +548,7 @@ export default function App() {
             );
         }
 
-        const header = `
-            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
             <head>
                 <meta charset='utf-8'>
                 <title>Documento</title>
@@ -566,7 +565,8 @@ export default function App() {
                 <xml>
                     <w:Section>
                         <w:PageSetup>
-                            <w:PageMargins w:top="1134" w:right="567" w:bottom="283" w:left="1134"/>
+                            <w:PageSize w:w="11906" w:h="16838"/>
+                            <w:PageMargins w:top="2268" w:right="1134" w:bottom="567" w:left="2268" w:header="0" w:footer="0" w:gutter="0"/>
                         </w:PageSetup>
                     </w:Section>
                 </xml>
