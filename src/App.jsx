@@ -1169,8 +1169,12 @@ export default function App() {
                                                 const textoBase = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + nroTomo + ".- Acta Número " + nroActa + ".- Folio " + nroFolio + ".";
                                                 const posicionActual = textoBase.length;
 
-                                                // Rellenar con guiones hasta 207 caracteres (sin importar si ACTA es 2 o 3 dígitos)
-                                                const caracterObjetivo = 207;
+                                                // Rellenar con guiones hasta 207 caracteres
+                                                // Si ACTA tiene 3 dígitos, restar 1 para compensar
+                                                let caracterObjetivo = 207;
+                                                if (String(nroActa).length >= 3) {
+                                                    caracterObjetivo = 206; // Un guión menos para 3 dígitos
+                                                }
                                                 const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
                                                 const guiones = '-'.repeat(guionesNecesarios);
 
