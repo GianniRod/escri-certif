@@ -834,7 +834,10 @@ export default function App() {
                                                 <span className="text-xs text-gray-400">{cert.timestamp ? new Date(cert.timestamp.seconds * 1000).toLocaleTimeString() : ''}</span>
                                             </td>
                                             <td className="p-4 font-bold text-gray-800">{cert.clientName}</td>
-                                            <td className="p-4 text-gray-800 font-medium">{cert.certificationTitle || cert.templateTitle}</td>
+                                            <td className="p-4 text-gray-800 font-medium">
+                                                <div>{cert.certificationTitle || cert.templateTitle}</div>
+                                                <div className="text-xs text-gray-500">{cert.templateTitle}</div>
+                                            </td>
                                             <td className="p-4 text-sm">
                                                 {cert.lastModifiedBy ? (
                                                     <div>
