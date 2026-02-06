@@ -683,6 +683,30 @@ export default function App() {
         }
     };
 
+    const handleDeleteClient = async (e, clientId) => {
+        e.stopPropagation(); // Evitar seleccionar el cliente al hacer clic en eliminar
+        if (confirm("¿Estás seguro de eliminar este cliente? Esta acción no se puede deshacer y podría afectar el historial.")) {
+            try {
+                await deleteDoc(doc(db, "clients", clientId));
+
+                // Si el cliente eliminado estaba seleccionado, limpiar la selección
+                if (selectedClientHistory?.id === clientId) {
+                    setSelectedClientHistory(null);
+                }
+
+                // Si el cliente eliminado estaba asignado en el generador, limpiar
+                if (certificationClient?.id === clientId) {
+                    setCertificationClient(null);
+                    setFormData({}); // Opcional: limpiar datos del formulario también
+                }
+
+            } catch (error) {
+                console.error("Error deleting client:", error);
+                alert("Hubo un error al eliminar el cliente.");
+            }
+        }
+    };
+
     // --- RENDER ---
     if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-500">Cargando...</p></div>;
 
@@ -903,10 +927,18 @@ export default function App() {
                                     <div
                                         key={client.id}
                                         onClick={() => setSelectedClientHistory(client)}
-                                        className={`p-3 rounded-lg cursor-pointer border hover:border-gray-400 transition ${selectedClientHistory?.id === client.id ? 'bg-gray-100 border-gray-800' : 'bg-white border-gray-100'}`}
+                                        className={`p-3 rounded-lg cursor-pointer border hover:border-gray-400 transition group relative ${selectedClientHistory?.id === client.id ? 'bg-gray-100 border-gray-800' : 'bg-white border-gray-100'}`}
                                     >
                                         <h4 className="font-bold text-gray-800">{client.name}</h4>
                                         <p className="text-xs text-gray-500">DNI: {client.dni || 'Sin datos'}</p>
+
+                                        <button
+                                            onClick={(e) => handleDeleteClient(e, client.id)}
+                                            className="absolute top-2 right-2 p-1.5 bg-white text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                                            title="Eliminar cliente"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
