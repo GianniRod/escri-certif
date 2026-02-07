@@ -702,63 +702,123 @@ export default function App() {
     };
 
     const handleCreateClient = async (name) => {
+        // En lugar de crear directo, abrimos el modal de edición con los datos pre-cargados
         if (!name) return;
-        const formattedName = formatClientName(name);
 
-        try {
-            const docRef = await addDoc(collection(db, "clients"), {
-                name: formattedName,
-                dni: '',
-                address: '',
-                email: '',
-                phone: '',
-                createdAt: serverTimestamp()
-            });
-            const newClient = { id: docRef.id, name: formattedName, dni: '' };
-            setCertificationClient(newClient);
-            setClientSearchText('');
+        let initialFirstName = '';
+        let initialLastName = '';
 
-            // También auto-rellenamos el formulario
-            setFormData(prev => ({
-                ...prev,
-                ['NOMBRE']: newClient.name,
-                ['CLIENTE']: newClient.name,
-                ['COMPARECIENTE']: newClient.name
-            }));
-
-        } catch (error) {
-            console.error("Error creating client:", error);
-            alert("Error al crear cliente.");
+        const parts = name.trim().split(/\s+/);
+        if (parts.length > 0) {
+            if (parts.length === 1) {
+                initialLastName = parts[0].toUpperCase();
+            } else {
+                initialLastName = parts.pop().toUpperCase();
+                initialFirstName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+            }
         }
+
+        setEditingClient({
+            name: '', // Se calculará al guardar
+            firstName: initialFirstName,
+            lastName: initialLastName,
+            dni: '',
+            address: '',
+            email: '',
+            phone: ''
+        });
+        setClientEditModalOpen(true);
     };
 
     const handleEditClient = (client) => {
-        setEditingClient({ ...client });
+        let firstName = client.firstName || '';
+        let lastName = client.lastName || '';
+
+        // Si no tiene separados nombre y apellido, intentamos separarlos
+        if (!firstName && !lastName && client.name) {
+            const parts = client.name.trim().split(/\s+/);
+            if (parts.length === 1) {
+                lastName = parts[0];
+            } else {
+                lastName = parts.pop();
+                firstName = parts.join(' ');
+            }
+        }
+
+        setEditingClient({
+            ...client,
+            firstName,
+            lastName
+        });
         setClientEditModalOpen(true);
     };
 
     const handleSaveClient = async () => {
-        if (!editingClient || !editingClient.id) return;
-        const formattedName = formatClientName(editingClient.name);
+        if (!editingClient) return;
+
+        const firstName = (editingClient.firstName || '').trim();
+        const lastName = (editingClient.lastName || '').trim();
+
+        // Formatear: Nombres Title Case, Apellido UPPERCASE
+        const formattedFirstName = firstName.split(/\s+/).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+        const formattedLastName = lastName.toUpperCase();
+        const fullName = `${formattedFirstName} ${formattedLastName}`.trim();
+
+        if (!fullName) {
+            alert("El nombre y apellido no pueden estar vacíos.");
+            return;
+        }
+
+        const clientData = {
+            name: fullName,
+            firstName: formattedFirstName,
+            lastName: formattedLastName,
+            dni: editingClient.dni || '',
+            estadoCivil: editingClient.estadoCivil || '',
+            address: editingClient.address || '',
+            notes: editingClient.notes || '',
+            updatedAt: serverTimestamp()
+        };
 
         try {
-            await updateDoc(doc(db, "clients", editingClient.id), {
-                name: formattedName,
-                dni: editingClient.dni || '',
-                estadoCivil: editingClient.estadoCivil || '',
-                address: editingClient.address || '',
-                notes: editingClient.notes || '',
-                updatedAt: serverTimestamp()
-            });
-            // Actualizar el cliente seleccionado si es el mismo
-            if (selectedClientHistory?.id === editingClient.id) {
-                setSelectedClientHistory({ ...editingClient, name: formattedName });
+            let savedClient = null;
+
+            if (editingClient.id) {
+                // Actualizar existente
+                await updateDoc(doc(db, "clients", editingClient.id), clientData);
+                savedClient = { ...editingClient, ...clientData };
+            } else {
+                // Crear nuevo
+                const docRef = await addDoc(collection(db, "clients"), {
+                    ...clientData,
+                    createdAt: serverTimestamp()
+                });
+                savedClient = { id: docRef.id, ...clientData };
+
+                // Si veníamos del generador (creando cliente nuevo), lo asignamos
+                if (view === 'GENERATOR' || clientSearchText) {
+                    setCertificationClient(savedClient);
+                    setClientSearchText('');
+                    setFormData(prev => ({
+                        ...prev,
+                        ['NOMBRE']: savedClient.name,
+                        ['CLIENTE']: savedClient.name,
+                        ['COMPARECIENTE']: savedClient.name
+                    }));
+                }
             }
+
+            // Actualizar el cliente seleccionado en historial si es el mismo
+            if (selectedClientHistory?.id === savedClient.id) {
+                setSelectedClientHistory(savedClient);
+            }
+
             setClientEditModalOpen(false);
             setEditingClient(null);
+
         } catch (error) {
-            console.error("Error updating client:", error);
-            alert("Error al guardar los cambios del cliente.");
+            console.error("Error saving client:", error);
+            alert("Error al guardar el cliente.");
         }
     };
 
@@ -1428,15 +1488,27 @@ export default function App() {
                         </div>
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Nombre y Apellido</label>
-                                <input
-                                    type="text"
-                                    value={editingClient.name || ''}
-                                    onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
-                                    placeholder="Nombre completo del cliente..."
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Nombre(s)</label>
+                                    <input
+                                        type="text"
+                                        value={editingClient.firstName || ''}
+                                        onChange={(e) => setEditingClient({ ...editingClient, firstName: e.target.value })}
+                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                        placeholder="Juan Manuel"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Apellido(s)</label>
+                                    <input
+                                        type="text"
+                                        value={editingClient.lastName || ''}
+                                        onChange={(e) => setEditingClient({ ...editingClient, lastName: e.target.value })}
+                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                        placeholder="PEREZ"
+                                    />
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
