@@ -212,23 +212,17 @@ function TemplateCard({ template, onUse, onEdit, onDelete }) {
 }
 
 // --- Autocomplete Input Component ---
-const AutocompleteInput = ({ label, value, onChange, onSelectResult, placeholder }) => {
+const AutocompleteInput = ({ label, value, onChange, onSelectResult, placeholder, clientsSource = [] }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    const handleSearch = async (text) => {
+    const handleSearch = (text) => {
         onChange(text);
         if (text && text.length > 2) {
-            const q = query(
-                collection(db, "clients"),
-                where("name", ">=", text.toUpperCase()),
-                where("name", "<=", text.toUpperCase() + '\uf8ff')
+            const lowerText = text.toLowerCase();
+            const results = clientsSource.filter(client =>
+                (client.name || '').toLowerCase().includes(lowerText)
             );
-            const querySnapshot = await getDocs(q);
-            const results = [];
-            querySnapshot.forEach((doc) => {
-                results.push({ id: doc.id, ...doc.data() });
-            });
             setSuggestions(results);
             setShowSuggestions(true);
         } else {
@@ -1288,6 +1282,7 @@ export default function App() {
                                                 onChange={setClientSearchText}
                                                 onSelectResult={handleClientSelect}
                                                 placeholder="Escribe nombre del cliente..."
+                                                clientsSource={clients}
                                             />
                                             {clientSearchText.length > 2 && (
                                                 <button
