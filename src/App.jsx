@@ -22,6 +22,20 @@ const extractVariables = (text) => {
     return [...new Set(matches.map(m => m[1].trim()))];
 };
 
+const formatClientName = (name) => {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 0) return '';
+
+    // Si solo hay una parte, la ponemos en mayúscula (se asume apellido o nombre único)
+    if (parts.length === 1) return parts[0].toUpperCase();
+
+    const surname = parts.pop().toUpperCase();
+    const firstNames = parts.map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ');
+
+    return `${firstNames} ${surname}`;
+};
+
 // --- Componente Rich Text Editor ---
 const RichTextEditor = ({ content, onChange, placeholder }) => {
     const editorRef = useRef(null);
@@ -689,16 +703,18 @@ export default function App() {
 
     const handleCreateClient = async (name) => {
         if (!name) return;
+        const formattedName = formatClientName(name);
+
         try {
             const docRef = await addDoc(collection(db, "clients"), {
-                name: name.toUpperCase(),
+                name: formattedName,
                 dni: '',
                 address: '',
                 email: '',
                 phone: '',
                 createdAt: serverTimestamp()
             });
-            const newClient = { id: docRef.id, name: name.toUpperCase(), dni: '' };
+            const newClient = { id: docRef.id, name: formattedName, dni: '' };
             setCertificationClient(newClient);
             setClientSearchText('');
 
@@ -723,9 +739,11 @@ export default function App() {
 
     const handleSaveClient = async () => {
         if (!editingClient || !editingClient.id) return;
+        const formattedName = formatClientName(editingClient.name);
+
         try {
             await updateDoc(doc(db, "clients", editingClient.id), {
-                name: editingClient.name?.toUpperCase() || '',
+                name: formattedName,
                 dni: editingClient.dni || '',
                 estadoCivil: editingClient.estadoCivil || '',
                 address: editingClient.address || '',
@@ -734,7 +752,7 @@ export default function App() {
             });
             // Actualizar el cliente seleccionado si es el mismo
             if (selectedClientHistory?.id === editingClient.id) {
-                setSelectedClientHistory({ ...editingClient, name: editingClient.name?.toUpperCase() });
+                setSelectedClientHistory({ ...editingClient, name: formattedName });
             }
             setClientEditModalOpen(false);
             setEditingClient(null);
