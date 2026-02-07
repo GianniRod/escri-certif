@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     FileText, Plus, Edit3, Trash2, ArrowLeft, Save,
     Download, PenTool, LayoutTemplate, Bold, Italic, Underline, CheckSquare,
-    Users, Search, Clock, ChevronRight, FileCheck, AlertCircle
+    Users, Search, Clock, ChevronRight, FileCheck, AlertCircle, Braces
 } from 'lucide-react';
 
 // FIREBASE IMPORTS
@@ -25,6 +25,7 @@ const extractVariables = (text) => {
 // --- Componente Rich Text Editor ---
 const RichTextEditor = ({ content, onChange, placeholder }) => {
     const editorRef = useRef(null);
+    const [selectionState, setSelectionState] = useState({ show: false, x: 0, y: 0, text: '' });
 
     // Sync content ONLY when it changes externally and is different
     useEffect(() => {
@@ -56,8 +57,68 @@ const RichTextEditor = ({ content, onChange, placeholder }) => {
         }
     };
 
+    const handleSelectionChange = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || selection.isCollapsed) {
+            setSelectionState({ show: false, x: 0, y: 0, text: '' });
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        // Only show if selection is within the editor
+        if (editorRef.current && editorRef.current.contains(selection.anchorNode)) {
+            setSelectionState({
+                show: true,
+                x: rect.left + (rect.width / 2) - 80, // Center horizontally
+                y: rect.top - 40, // Above the selection
+                text: selection.toString()
+            });
+        }
+    };
+
+    const convertSelectionToVariable = (e) => {
+        e.preventDefault(); // Prevent losing focus immediately
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && !selection.isCollapsed) {
+            const range = selection.getRangeAt(0);
+            const text = selection.toString().toUpperCase().replace(/\s+/g, '_'); // Replace spaces with underscores
+            const variableText = `{{${text}}}`;
+
+            // Insert the variable text
+            document.execCommand('insertText', false, variableText);
+
+            // Hide button
+            setSelectionState({ show: false, x: 0, y: 0, text: '' });
+            handleInput();
+        }
+    };
+
+    // Attach selection listener
+    useEffect(() => {
+        document.addEventListener('selectionchange', handleSelectionChange);
+        return () => {
+            document.removeEventListener('selectionchange', handleSelectionChange);
+        };
+    }, []);
+
     return (
-        <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-white">
+        <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-white relative">
+            {selectionState.show && (
+                <button
+                    onMouseDown={convertSelectionToVariable} // Use onMouseDown to prevent focus loss before action
+                    style={{
+                        position: 'fixed', // Use fixed to position relative to viewport, consistent with getBoundingClientRect
+                        top: selectionState.y,
+                        left: selectionState.x,
+                        zIndex: 1000
+                    }}
+                    className="bg-gray-900 text-white text-xs font-bold py-1 px-3 rounded shadow-lg flex items-center gap-2 animate-bounce-in"
+                >
+                    <Braces size={12} /> Convertir a Variable
+                </button>
+            )}
             <div className="flex items-center gap-2 p-2 bg-gray-50 border-b">
                 <button onMouseDown={(e) => { e.preventDefault(); execCmd('bold'); }} className="p-2 hover:bg-gray-200 rounded text-gray-700" title="Negrita">
                     <Bold size={18} />
