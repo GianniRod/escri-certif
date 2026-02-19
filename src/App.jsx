@@ -36,6 +36,67 @@ const formatClientName = (name) => {
     return `${firstNames} ${surname}`;
 };
 
+// --- Mapa de Palabras con Género ---
+const getGenderedWords = (genero) => {
+    const isFemale = genero === 'F';
+    return {
+        'NACIDO_A': isFemale ? 'nacida' : 'nacido',
+        'DOMICILIADO_A': isFemale ? 'domiciliada' : 'domiciliado',
+        'IDENTIFICADO_A': isFemale ? 'identificada' : 'identificado',
+        'SOLTERO_A': isFemale ? 'soltera' : 'soltero',
+        'CASADO_A': isFemale ? 'casada' : 'casado',
+        'DIVORCIADO_A': isFemale ? 'divorciada' : 'divorciado',
+        'VIUDO_A': isFemale ? 'viuda' : 'viudo',
+        'ARGENTINO_A': isFemale ? 'argentina' : 'argentino',
+        'EL_LA': isFemale ? 'la' : 'el',
+        'DEL_LA': isFemale ? 'de la' : 'del',
+        'AL_A_LA': isFemale ? 'a la' : 'al',
+        'DON_DOÑA': isFemale ? 'Doña' : 'Don',
+        'SR_SRA': isFemale ? 'Sra.' : 'Sr.',
+        'HIJO_A': isFemale ? 'hija' : 'hijo',
+        'CIUDADANO_A': isFemale ? 'ciudadana' : 'ciudadano',
+        'INTERESADO_A': isFemale ? 'interesada' : 'interesado',
+        'APODERADO_A': isFemale ? 'apoderada' : 'apoderado',
+        'FIRMANTE': isFemale ? 'la firmante' : 'el firmante',
+        'OTORGANTE': isFemale ? 'la otorgante' : 'el otorgante',
+        'COMPARECIENTE_G': isFemale ? 'la compareciente' : 'el compareciente',
+        'TITULAR': isFemale ? 'la titular' : 'el titular',
+        'HABILITADO_A': isFemale ? 'habilitada' : 'habilitado',
+        'AUTORIZADO_A': isFemale ? 'autorizada' : 'autorizado',
+        'PRESENTADO_A': isFemale ? 'presentada' : 'presentado',
+        'CONVOCADO_A': isFemale ? 'convocada' : 'convocado',
+        'DECLARADO_A': isFemale ? 'declarada' : 'declarado',
+        'REPRESENTADO_A': isFemale ? 'representada' : 'representado',
+    };
+};
+
+const getEstadoCivilOptions = (genero) => {
+    if (genero === 'M') {
+        return [
+            { value: 'Soltero', label: 'Soltero' },
+            { value: 'Casado', label: 'Casado' },
+            { value: 'Divorciado', label: 'Divorciado' },
+            { value: 'Viudo', label: 'Viudo' },
+            { value: 'Unión Convivencial', label: 'Unión Convivencial' },
+        ];
+    } else if (genero === 'F') {
+        return [
+            { value: 'Soltera', label: 'Soltera' },
+            { value: 'Casada', label: 'Casada' },
+            { value: 'Divorciada', label: 'Divorciada' },
+            { value: 'Viuda', label: 'Viuda' },
+            { value: 'Unión Convivencial', label: 'Unión Convivencial' },
+        ];
+    }
+    return [
+        { value: 'Soltero/a', label: 'Soltero/a' },
+        { value: 'Casado/a', label: 'Casado/a' },
+        { value: 'Divorciado/a', label: 'Divorciado/a' },
+        { value: 'Viudo/a', label: 'Viudo/a' },
+        { value: 'Unión Convivencial', label: 'Unión Convivencial' },
+    ];
+};
+
 // --- Componente Rich Text Editor ---
 const RichTextEditor = ({ content, onChange, placeholder }) => {
     const editorRef = useRef(null);
@@ -495,13 +556,15 @@ export default function App() {
     const handleClientSelect = (client) => {
         setCertificationClient(client);
         // Auto-fill form data if matches
+        const genderedWords = client.genero ? getGenderedWords(client.genero) : {};
         setFormData(prev => ({
             ...prev,
             ['NOMBRE']: (client.name || '').toUpperCase(),
             ['CLIENTE']: (client.name || '').toUpperCase(),
             ['COMPARECIENTE']: (client.name || '').toUpperCase(),
             ['DNI']: client.dni || prev['DNI'] || '',
-            ['DOMICILIO']: client.address || prev['DOMICILIO'] || ''
+            ['DOMICILIO']: client.address || prev['DOMICILIO'] || '',
+            ...genderedWords
         }));
     };
 
@@ -558,7 +621,8 @@ export default function App() {
         const client = clients.find(c => c.id === cert.clientId) || {
             id: cert.clientId,
             name: cert.clientName,
-            dni: ''
+            dni: '',
+            genero: ''
         };
 
         setCurrentTemplate(template);
@@ -716,6 +780,7 @@ export default function App() {
             name: '', // Se calculará al guardar
             firstName: initialFirstName,
             lastName: initialLastName,
+            genero: '',
             dni: '',
             address: '',
             email: '',
@@ -742,7 +807,8 @@ export default function App() {
         setEditingClient({
             ...client,
             firstName,
-            lastName
+            lastName,
+            genero: client.genero || ''
         });
         setClientEditModalOpen(true);
     };
@@ -767,6 +833,7 @@ export default function App() {
             name: fullName,
             firstName: formattedFirstName,
             lastName: formattedLastName,
+            genero: editingClient.genero || '',
             dni: editingClient.dni || '',
             estadoCivil: editingClient.estadoCivil || '',
             address: editingClient.address || '',
@@ -793,11 +860,13 @@ export default function App() {
                 if (view === 'GENERATOR' || clientSearchText) {
                     setCertificationClient(savedClient);
                     setClientSearchText('');
+                    const genderedWords = savedClient.genero ? getGenderedWords(savedClient.genero) : {};
                     setFormData(prev => ({
                         ...prev,
                         ['NOMBRE']: savedClient.name,
                         ['CLIENTE']: savedClient.name,
-                        ['COMPARECIENTE']: savedClient.name
+                        ['COMPARECIENTE']: savedClient.name,
+                        ...genderedWords
                     }));
                 }
             }
@@ -1094,12 +1163,18 @@ export default function App() {
                                     </div>
 
                                     {/* Información Personal del Cliente */}
-                                    {(selectedClientHistory.dni || selectedClientHistory.estadoCivil || selectedClientHistory.address || selectedClientHistory.notes) && (
+                                    {(selectedClientHistory.dni || selectedClientHistory.genero || selectedClientHistory.estadoCivil || selectedClientHistory.address || selectedClientHistory.notes) && (
                                         <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
                                             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
                                                 <Users size={16} /> Datos Personales
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {selectedClientHistory.genero && (
+                                                    <div>
+                                                        <span className="text-xs font-bold text-gray-500 uppercase">Género</span>
+                                                        <p className="text-gray-800">{selectedClientHistory.genero === 'M' ? 'Masculino' : 'Femenino'}</p>
+                                                    </div>
+                                                )}
                                                 {selectedClientHistory.dni && (
                                                     <div>
                                                         <span className="text-xs font-bold text-gray-500 uppercase">DNI</span>
@@ -1518,6 +1593,21 @@ export default function App() {
                                     />
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Género</label>
+                                    <select
+                                        value={editingClient.genero || ''}
+                                        onChange={(e) => setEditingClient({ ...editingClient, genero: e.target.value, estadoCivil: '' })}
+                                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        <option value="M">Masculino</option>
+                                        <option value="F">Femenino</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Estado Civil</label>
                                     <select
                                         value={editingClient.estadoCivil || ''}
@@ -1525,11 +1615,9 @@ export default function App() {
                                         className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-gray-800 outline-none bg-gray-50"
                                     >
                                         <option value="">Seleccionar...</option>
-                                        <option value="Soltero/a">Soltero/a</option>
-                                        <option value="Casado/a">Casado/a</option>
-                                        <option value="Divorciado/a">Divorciado/a</option>
-                                        <option value="Viudo/a">Viudo/a</option>
-                                        <option value="Unión Convivencial">Unión Convivencial</option>
+                                        {getEstadoCivilOptions(editingClient.genero).map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
