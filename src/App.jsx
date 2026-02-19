@@ -36,38 +36,71 @@ const formatClientName = (name) => {
     return `${firstNames} ${surname}`;
 };
 
-// --- Mapa de Palabras con Género ---
-const getGenderedWords = (genero) => {
-    const isFemale = genero === 'F';
-    return {
-        'NACIDO_A': isFemale ? 'nacida' : 'nacido',
-        'DOMICILIADO_A': isFemale ? 'domiciliada' : 'domiciliado',
-        'IDENTIFICADO_A': isFemale ? 'identificada' : 'identificado',
-        'SOLTERO_A': isFemale ? 'soltera' : 'soltero',
-        'CASADO_A': isFemale ? 'casada' : 'casado',
-        'DIVORCIADO_A': isFemale ? 'divorciada' : 'divorciado',
-        'VIUDO_A': isFemale ? 'viuda' : 'viudo',
-        'ARGENTINO_A': isFemale ? 'argentina' : 'argentino',
-        'EL_LA': isFemale ? 'la' : 'el',
-        'DEL_LA': isFemale ? 'de la' : 'del',
-        'AL_A_LA': isFemale ? 'a la' : 'al',
-        'DON_DOÑA': isFemale ? 'Doña' : 'Don',
-        'SR_SRA': isFemale ? 'Sra.' : 'Sr.',
-        'HIJO_A': isFemale ? 'hija' : 'hijo',
-        'CIUDADANO_A': isFemale ? 'ciudadana' : 'ciudadano',
-        'INTERESADO_A': isFemale ? 'interesada' : 'interesado',
-        'APODERADO_A': isFemale ? 'apoderada' : 'apoderado',
-        'FIRMANTE': isFemale ? 'la firmante' : 'el firmante',
-        'OTORGANTE': isFemale ? 'la otorgante' : 'el otorgante',
-        'COMPARECIENTE_G': isFemale ? 'la compareciente' : 'el compareciente',
-        'TITULAR': isFemale ? 'la titular' : 'el titular',
-        'HABILITADO_A': isFemale ? 'habilitada' : 'habilitado',
-        'AUTORIZADO_A': isFemale ? 'autorizada' : 'autorizado',
-        'PRESENTADO_A': isFemale ? 'presentada' : 'presentado',
-        'CONVOCADO_A': isFemale ? 'convocada' : 'convocado',
-        'DECLARADO_A': isFemale ? 'declarada' : 'declarado',
-        'REPRESENTADO_A': isFemale ? 'representada' : 'representado',
-    };
+// --- Reemplazo Automático de Palabras con Género ---
+// Reemplaza directamente en el texto del template las palabras masculinas por femeninas
+const genderReplacements = [
+    // [masculino, femenino] - se buscan en el texto y se reemplazan
+    ['nacido', 'nacida'],
+    ['domiciliado', 'domiciliada'],
+    ['identificado', 'identificada'],
+    ['argentino', 'argentina'],
+    ['ciudadano', 'ciudadana'],
+    ['interesado', 'interesada'],
+    ['apoderado', 'apoderada'],
+    ['habilitado', 'habilitada'],
+    ['autorizado', 'autorizada'],
+    ['presentado', 'presentada'],
+    ['convocado', 'convocada'],
+    ['declarado', 'declarada'],
+    ['representado', 'representada'],
+    ['soltero', 'soltera'],
+    ['casado', 'casada'],
+    ['divorciado', 'divorciada'],
+    ['viudo', 'viuda'],
+    ['hijo', 'hija'],
+    ['Don ', 'Doña '],
+    ['DON ', 'DOÑA '],
+    ['don ', 'doña '],
+    ['Sr.', 'Sra.'],
+    ['SR.', 'SRA.'],
+    ['el compareciente', 'la compareciente'],
+    ['El compareciente', 'La compareciente'],
+    ['EL COMPARECIENTE', 'LA COMPARECIENTE'],
+    ['el firmante', 'la firmante'],
+    ['El firmante', 'La firmante'],
+    ['EL FIRMANTE', 'LA FIRMANTE'],
+    ['el otorgante', 'la otorgante'],
+    ['El otorgante', 'La otorgante'],
+    ['EL OTORGANTE', 'LA OTORGANTE'],
+    ['el titular', 'la titular'],
+    ['El titular', 'La titular'],
+    ['EL TITULAR', 'LA TITULAR'],
+];
+
+const applyGenderedReplacements = (text, genero) => {
+    if (!genero || genero !== 'F' || !text) return text;
+    let result = text;
+    genderReplacements.forEach(([masc, fem]) => {
+        // Para palabras cortas como "Don " o "Sr." usar reemplazo directo
+        // Para palabras largas usar regex con boundary para no reemplazar dentro de otras palabras
+        if (masc.includes(' ') || masc.includes('.')) {
+            result = result.replaceAll(masc, fem);
+        } else {
+            // Usar regex para reemplazar respetando mayúsculas/minúsculas y límites de palabra
+            // Reemplazar versión minúscula
+            const regexLower = new RegExp(`\\b${masc}\\b`, 'g');
+            result = result.replace(regexLower, fem);
+            // Reemplazar versión con primera mayúscula
+            const mascCapitalized = masc.charAt(0).toUpperCase() + masc.slice(1);
+            const femCapitalized = fem.charAt(0).toUpperCase() + fem.slice(1);
+            const regexCapitalized = new RegExp(`\\b${mascCapitalized}\\b`, 'g');
+            result = result.replace(regexCapitalized, femCapitalized);
+            // Reemplazar versión MAYÚSCULA completa
+            const regexUpper = new RegExp(`\\b${masc.toUpperCase()}\\b`, 'g');
+            result = result.replace(regexUpper, fem.toUpperCase());
+        }
+    });
+    return result;
 };
 
 const getEstadoCivilOptions = (genero) => {
@@ -556,15 +589,13 @@ export default function App() {
     const handleClientSelect = (client) => {
         setCertificationClient(client);
         // Auto-fill form data if matches
-        const genderedWords = client.genero ? getGenderedWords(client.genero) : {};
         setFormData(prev => ({
             ...prev,
             ['NOMBRE']: (client.name || '').toUpperCase(),
             ['CLIENTE']: (client.name || '').toUpperCase(),
             ['COMPARECIENTE']: (client.name || '').toUpperCase(),
             ['DNI']: client.dni || prev['DNI'] || '',
-            ['DOMICILIO']: client.address || prev['DOMICILIO'] || '',
-            ...genderedWords
+            ['DOMICILIO']: client.address || prev['DOMICILIO'] || ''
         }));
     };
 
@@ -860,13 +891,11 @@ export default function App() {
                 if (view === 'GENERATOR' || clientSearchText) {
                     setCertificationClient(savedClient);
                     setClientSearchText('');
-                    const genderedWords = savedClient.genero ? getGenderedWords(savedClient.genero) : {};
                     setFormData(prev => ({
                         ...prev,
                         ['NOMBRE']: savedClient.name,
                         ['CLIENTE']: savedClient.name,
-                        ['COMPARECIENTE']: savedClient.name,
-                        ...genderedWords
+                        ['COMPARECIENTE']: savedClient.name
                     }));
                 }
             }
@@ -1485,6 +1514,10 @@ export default function App() {
                                                 const val = formData[key] || `<span style="color:red; background:#fee">[${key}]</span>`;
                                                 text = text.replaceAll(`{{${key}}}`, val);
                                             });
+                                            // Aplicar reemplazo de género automático
+                                            if (certificationClient?.genero) {
+                                                text = applyGenderedReplacements(text, certificationClient.genero);
+                                            }
                                             return <div dangerouslySetInnerHTML={{ __html: text }} />;
                                         })()}
                                     </div>
