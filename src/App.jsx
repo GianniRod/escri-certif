@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, convertInchesToTwip } from 'docx';
+import { saveAs } from 'file-saver';
 import {
     FileText, Plus, Edit3, Trash2, ArrowLeft, Save,
     Download, PenTool, LayoutTemplate, Bold, Italic, Underline, CheckSquare,
@@ -13,6 +15,130 @@ import {
 } from 'firebase/firestore';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+
+// --- Utilidad: Convertir DOM a elementos docx ---
+function parseDOMToDocxParagraphs(container) {
+    const paragraphs = [];
+
+    // Recorrer los nodos hijos del contenedor
+    function collectInlineRuns(node, inheritedStyles = {}) {
+        const runs = [];
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent;
+            if (text && text.trim() !== '') {
+                runs.push(new TextRun({
+                    text: text,
+                    bold: inheritedStyles.bold || false,
+                    italics: inheritedStyles.italic || false,
+                    underline: inheritedStyles.underline ? { type: 'single' } : undefined,
+                    font: inheritedStyles.font || 'Arial',
+                    size: inheritedStyles.size || 22, // 11pt = 22 half-points
+                }));
+            } else if (text && text !== '') {
+                // Preserve whitespace-only text nodes (spaces between words)
+                runs.push(new TextRun({
+                    text: text,
+                    bold: inheritedStyles.bold || false,
+                    italics: inheritedStyles.italic || false,
+                    underline: inheritedStyles.underline ? { type: 'single' } : undefined,
+                    font: inheritedStyles.font || 'Arial',
+                    size: inheritedStyles.size || 22,
+                }));
+            }
+            return runs;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return runs;
+
+        const tag = node.tagName.toLowerCase();
+        const style = node.style || {};
+        const computedStyle = window.getComputedStyle ? window.getComputedStyle(node) : {};
+
+        // Build inherited styles for children
+        const childStyles = { ...inheritedStyles };
+
+        if (tag === 'b' || tag === 'strong' || style.fontWeight === 'bold' || computedStyle.fontWeight === 'bold' || computedStyle.fontWeight === '700') {
+            childStyles.bold = true;
+        }
+        if (tag === 'i' || tag === 'em' || style.fontStyle === 'italic') {
+            childStyles.italic = true;
+        }
+        if (tag === 'u' || style.textDecoration?.includes('underline') || computedStyle.textDecorationLine?.includes('underline')) {
+            childStyles.underline = true;
+        }
+
+        // Check for font size from inline style
+        const inlineFontSize = style.fontSize;
+        if (inlineFontSize) {
+            const ptMatch = inlineFontSize.match(/(\d+(?:\.\d+)?)\s*pt/i);
+            if (ptMatch) {
+                childStyles.size = Math.round(parseFloat(ptMatch[1]) * 2); // pt to half-points
+            }
+        }
+
+        // Handle BR as line break
+        if (tag === 'br') {
+            runs.push(new TextRun({ break: 1, font: 'Arial', size: 22 }));
+            return runs;
+        }
+
+        // Recurse into children
+        for (const child of node.childNodes) {
+            runs.push(...collectInlineRuns(child, childStyles));
+        }
+
+        return runs;
+    }
+
+    function processNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent?.trim();
+            if (text) {
+                paragraphs.push(new Paragraph({
+                    children: [new TextRun({ text, font: 'Arial', size: 22 })],
+                    alignment: AlignmentType.JUSTIFIED,
+                    spacing: { line: 528 }, // ~2.2 line spacing (240 * 2.2)
+                }));
+            }
+            return;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const tag = node.tagName.toLowerCase();
+
+        // Block-level elements create new paragraphs
+        if (['div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article'].includes(tag)) {
+            const runs = collectInlineRuns(node);
+            if (runs.length > 0) {
+                paragraphs.push(new Paragraph({
+                    children: runs,
+                    alignment: AlignmentType.JUSTIFIED,
+                    spacing: { line: 528 },
+                }));
+            }
+            return;
+        }
+
+        // Inline or unknown elements: collect runs
+        const runs = collectInlineRuns(node);
+        if (runs.length > 0) {
+            paragraphs.push(new Paragraph({
+                children: runs,
+                alignment: AlignmentType.JUSTIFIED,
+                spacing: { line: 528 },
+            }));
+        }
+    }
+
+    // Process top-level children
+    for (const child of container.childNodes) {
+        processNode(child);
+    }
+
+    return paragraphs;
+}
 
 // --- Utiles para Variables ---
 const extractVariables = (text) => {
@@ -637,7 +763,7 @@ export default function App() {
             });
         }
 
-        exportToWordWithName(downloadFilename || 'Documento');
+        await exportToWordWithName(downloadFilename || 'Documento');
         setDownloadModalOpen(false);
     };
 
@@ -681,108 +807,51 @@ export default function App() {
         }
     };
 
-    const exportToWordWithName = (filename) => {
-        let content = document.getElementById('document-preview').innerHTML;
-
-        // Si estamos en Paso 2 (Banderita), ajustar la cantidad de guiones automáticamente
-        // Cada renglón = 75 caracteres, "Silvana Andrea BOLLATI" debe empezar en carácter 151 (tercer renglón)
-        if (activeSection === 'banderita') {
-            // Obtener los valores de los campos
-            const nroTomo = formData['NRO TOMO'] || formData['NRO_TOMO'] || formData['TOMO'] || '';
-            const nroActa = formData['NRO_ACTA'] || formData['NRO ACTA'] || formData['ACTA'] || '';
-            const nroFolio = formData['NRO FOLIO'] || formData['NRO_FOLIO'] || formData['FOLIO'] || '';
-
-            // Texto completo antes del Folio (primera línea completa + inicio segunda línea)
-            const primeraLinea = "Libro de Registro de Actos e Intervenciones Extraprotocolares Tomo " + String(nroTomo) + ".- Acta ";
-            const segundaLineaInicio = "Número " + String(nroActa) + ".- Folio " + String(nroFolio);
-
-            // Posición actual después del folio
-            const posicionActual = primeraLinea.length + segundaLineaInicio.length;
-
-            // Silvana debe empezar en carácter 151, así que guiones hasta carácter 150
-            const caracterObjetivo = 150;
-            const guionesNecesarios = Math.max(1, caracterObjetivo - posicionActual);
-
-            // Buscar el patrón y reemplazar
-            content = content.replace(
-                /(Folio\s*)(\d+)(\s*-*\s*)(Silvana)/gi,
-                (match, folioText, folioNum, guionesExistentes, silvana) => {
-                    return folioText + folioNum + '-'.repeat(guionesNecesarios) + silvana;
-                }
-            );
+    const exportToWordWithName = async (filename) => {
+        // Obtener el elemento DOM de preview directamente
+        const previewEl = document.getElementById('document-preview');
+        if (!previewEl) {
+            alert('No se encontró la vista previa del documento.');
+            return;
         }
 
-        const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-            <head>
-                <meta charset='utf-8'>
-                <title>Documento</title>
-                <!--[if gte mso 9]>
-                <xml>
-                    <w:WordDocument>
-                        <w:View>Print</w:View>
-                        <w:Zoom>100</w:Zoom>
-                        <w:DoNotOptimizeForBrowser/>
-                    </w:WordDocument>
-                </xml>
-                <![endif]-->
-                <!--[if gte mso 9]>
-                <xml>
-                    <w:Section>
-                        <w:PageSetup>
-                            <w:PageSize w:w="11906" w:h="16838"/>
-                            <w:PageMargins w:top="2268" w:right="1134" w:bottom="567" w:left="2268" w:header="0" w:footer="0" w:gutter="0"/>
-                        </w:PageSetup>
-                    </w:Section>
-                </xml>
-                <![endif]-->
-                <style>
-                    @page Section1 {
-                        size: 21cm 29.7cm;
-                        margin: 4cm 2cm 1cm 4cm;
-                        mso-page-orientation: portrait;
-                        mso-header-margin: 0cm;
-                        mso-footer-margin: 0cm;
-                    }
-                    div.Section1 { page: Section1; }
-                    body { 
-                        font-family: Arial, sans-serif; 
-                        font-size: 11pt;
-                        line-height: 2.2; 
-                        text-align: justify;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    p, div, span { 
-                        font-family: Arial, sans-serif; 
-                        font-size: 11pt;
-                    }
-                    .encabezado12 {
-                        font-family: Arial, sans-serif;
-                        font-size: 12pt;
-                        mso-bidi-font-size: 12.0pt;
-                    }
-                </style>
-            </head>
-            <body><div class="Section1">`;
-        const footer = "</div></body></html>";
-        // Limpiar fuentes Roboto y forzar Arial 11pt en todo el contenido
-        let cleanedContent = content
-            .replace(/font-family:\s*[^;]+;?/gi, 'font-family: Arial, sans-serif;')
-            .replace(/font-size:\s*([^;]+);?/gi, (match, size) => {
-                if (size.trim() === '12pt' || size.trim() === '12.0pt') return match;
-                return 'font-size: 11pt;';
+        try {
+            // Convertir el DOM a párrafos docx
+            const paragraphs = parseDOMToDocxParagraphs(previewEl);
+
+            // Crear el documento DOCX real
+            // Márgenes: top 4cm, right 2cm, bottom 1cm, left 4cm
+            // 1cm = 567 TWIP
+            const docFile = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            size: {
+                                width: 11906,   // 21cm A4
+                                height: 16838,  // 29.7cm A4
+                                orientation: 'portrait'
+                            },
+                            margin: {
+                                top: 2268,      // 4cm
+                                right: 1134,    // 2cm
+                                bottom: 567,    // 1cm
+                                left: 2268,     // 4cm
+                                header: 0,
+                                footer: 0
+                            }
+                        }
+                    },
+                    children: paragraphs
+                }]
             });
-        // Envolver el contenido en un span con Arial 11pt forzado para Word
-        const styledContent = `<span style="font-family: Arial, sans-serif; font-size: 11pt;">${cleanedContent}</span>`;
-        const sourceHTML = header + styledContent + footer;
-        const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
-        const fileDownload = document.createElement("a");
-        document.body.appendChild(fileDownload);
-        fileDownload.href = source;
-        // Usar nombre personalizado con extensión .docx
-        fileDownload.download = `${filename.replace(/\.docx?$/i, '')}.docx`;
-        fileDownload.click();
-        document.body.removeChild(fileDownload);
+
+            // Generar y descargar el DOCX
+            const blob = await Packer.toBlob(docFile);
+            saveAs(blob, `${filename.replace(/\.docx?$/i, '')}.docx`);
+        } catch (error) {
+            console.error('Error generando DOCX:', error);
+            alert('Hubo un error al generar el documento. Por favor intente nuevamente.');
+        }
     };
 
     // --- ACCIONES CLIENTES ---
