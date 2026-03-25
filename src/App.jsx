@@ -1,3 +1,4 @@
+// v2.1 - DOCX export fix
 import React, { useState, useEffect, useRef } from 'react';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, convertInchesToTwip } from 'docx';
 import { saveAs } from 'file-saver';
